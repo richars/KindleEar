@@ -7,7 +7,7 @@ def getBook():
     return NYTChina
 
 class NYTChina(BaseFeedBook):
-    title                 = 'NYT China and Korea'
+    title                 = 'NY Times'
     description           = 'News from the NYT'
     language              = 'en'
     feed_encoding         = "utf-8"
@@ -17,12 +17,17 @@ class NYTChina(BaseFeedBook):
 #    coverfile             = "cv_d5yuansu.jpg"
 #    network_timeout       = 60
     feeds = [
-            ('NYT China', 'http://www.nytimes.com/svc/collections/v1/publish/www.nytimes.com/topic/destination/china/rss.xml'),
-            ('NYT South Korea', 'http://www.nytimes.com/svc/collections/v1/publish/www.nytimes.com/topic/destination/south-korea/rss.xml'),
-            ('NYT North Korea', 'http://www.nytimes.com/svc/collections/v1/publish/www.nytimes.com/topic/destination/north-korea/rss.xml'),
-           ]
+            ('NYT World','http://rss.nytimes.com/services/xml/rss/nyt/World.xml'),
+            ('NYT China','http://www.nytimes.com/svc/collections/v1/publish/www.nytimes.com/topic/destination/china/rss.xml'),
+            ('NYT Fashion','http://rss.nytimes.com/services/xml/rss/nyt/FashionandStyle.xml'),
+            ('NYT Business','http://rss.nytimes.com/services/xml/rss/nyt/Business.xml'),
+            ('NYT Technology','http://rss.nytimes.com/services/xml/rss/nyt/Technology.xml'),
+ 	          ('NYT Books','http://rss.nytimes.com/services/xml/rss/nyt/Books.xml'),
+	          ('NYT Movies','http://rss.nytimes.com/services/xml/rss/nyt/Movies.xml'),
+	          ('NYT Economy','http://www.nytimes.com/services/xml/rss/nyt/Economy.xml'),                          
+	          ]
     fulltext_by_readability = False
-    keep_image = False
+    keep_image = True
     extra_css      = '''
         .headline {font-size: large}
         .byline author vcard {font-size: small}
