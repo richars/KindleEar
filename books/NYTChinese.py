@@ -6,8 +6,8 @@ def getBook():
     return NYTChinese
 
 class NYTChinese(BaseFeedBook):
-    title                 = u'BBC中文网'
-    description           = u'BBC中文版'
+    title                 = u'纽约时报中文网'
+    description           = u'纽约时报中文网'
     language              = 'zh-cn'
     feed_encoding         = "utf-8"
     page_encoding         = "utf-8"
@@ -23,7 +23,7 @@ class NYTChinese(BaseFeedBook):
         '''
     
     feeds = [
-            (u'BBC中文网', 'http://feeds.bbci.co.uk/zhongwen/simp/rss.xml'),
+            (u'纽约时报中文网', 'https://cn.nytimes.com/rss.html'),
             ]
     
         
