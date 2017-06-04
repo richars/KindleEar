@@ -23,11 +23,8 @@ class Ke36(BaseFeedBook):
         '''
     
     feeds = [
-            (u'36氪', 'http://www.36kr.com/feed?1.0'),
+            (u'36氪', 'http://www.36kr.com/feed?1.0',isfulltext),
             ]
     
-    def fetcharticle(self, url, opener, decoder):
-        #每个URL都增加一个后缀full=y，如果有分页则自动获取全部分页
-        url += '?full=y'
-        return BaseFeedBook.fetcharticle(self,url,opener,decoder)
+
         

@@ -14,7 +14,7 @@ class BBCChinese(BaseFeedBook):
     mastheadfile          = "mh_ftchinese.gif"
     coverfile             = "cv_ftchinese.jpg"
     oldest_article        = 1
-    keep_image            = False
+    keep_image            = True
     extra_css      = '''
         body { font-size: 1em;  text-align: justify;  line-height: 1.718em}
         p { font-size: 1em;  text-align: justify;  line-height: 1.718em }
