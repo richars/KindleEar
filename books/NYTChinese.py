@@ -16,10 +16,9 @@ class NYTChinese(BaseFeedBook):
     oldest_article        = 1
     keep_image            = True
     extra_css      = '''
-        body { font-size: 1em;  text-align: justify;  line-height: 1.718em}
-        p { font-size: 1em;  text-align: justify;  line-height: 1.718em }
-        div { font-size: 1em;  text-align: justify;  line-height: 1.718em }
-        h1 { font-size: large  }
+        body { font-size: 1em; text-align: justify;  line-height: 1.618em; margin: 0; }
+        p { font-size: 1em; text-align: justify;  line-height: 1.618em; }
+        h1 { font-size: large; }
         '''
     
     feeds = [
