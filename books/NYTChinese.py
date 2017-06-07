@@ -15,11 +15,7 @@ class NYTChinese(BaseFeedBook):
     coverfile             = "cv_ftchinese.jpg"
     oldest_article        = 1
     keep_image            = True
-    extra_css      = '''
-        body { font-size: 1em; text-align: justify;  line-height: 1.618em; margin: 0; }
-        p { font-size: 1em; text-align: justify;  line-height: 1.618em; }
-        h1 { font-size: large; }
-        '''
+    extra_css      = 'body { font-size: 1em; text-align: justify;  line-height: 140%; margin: 0; }'
     
     feeds = [
             (u'纽约时报中文网', 'https://cn.nytimes.com/rss.html'),
