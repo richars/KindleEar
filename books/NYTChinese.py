@@ -21,6 +21,7 @@ class NYTChinese(BaseFeedBook):
         p.paragraph { font-size: 1em; text-align: justify;  line-height: 1.618em; }  
         div { font-size: 1em;  text-align: justify;  line-height: 1.618em; }
         h1 { font-size: large; }
+        '''
 
     feeds = [
             (u'纽约时报中文网', 'https://cn.nytimes.com/rss.html'),
