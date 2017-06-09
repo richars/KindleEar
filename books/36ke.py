@@ -18,6 +18,8 @@ class Ke36(BaseFeedBook):
     extra_css      = '''
         body { font-size: 1em; text-align: justify;  line-height: 1.618em; margin: 0; }
         p { font-size: 1em; text-align: justify;  line-height: 1.618em; }
+        p.paragraph { font-size: 1em; text-align: justify;  line-height: 1.618em; }  
+        div { font-size: 1em;  text-align: justify;  line-height: 1.618em; }
         h1 { font-size: large; }
         '''
     
