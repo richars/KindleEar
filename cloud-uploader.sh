@@ -8,24 +8,11 @@
                                                                                                                
 cd ~                                                                                                           
                                                                                                                
-if [ ! -d "./KindleEar" ]                                                                                      
-then                                                                                                           
-    git clone https://github.com/richars/KindleEar.git                                                          
-else                                                                                                           
-    response='y'                                                                                               
-    read -r -p '已存在 KindleEar 源码，是否更新？[y/N]' response                                               
-    if [[ $response =~ ^([yY][eE][sS]|[yY])$ ]]                                                                
-    then                                                                                                       
-        # rm -rf ./KindleEar                                                                                   
-        # git clone https://github.com/richars/KindleEar.git                                                    
-        cd ./KindleEar                                                                                         
-        git pull ./KindleEar                                                                                   
-        cd ..                                                                                                  
-    fi                                                                                                         
-fi                                                                                                             
-                                                                                                               
-cd KindleEar                                                                                                   
-                                                                                                               
+                                                                                                    
+rm -rf ./KindleEar                                                                                   
+git clone https://github.com/richars/KindleEar.git                                                    
+cd ./KindleEar                                                                                         
+                                                 
 cemail=$(sed -n "s/^SRC_EMAIL = \"\(.*\)\".*#.*/\1/p" ./config.py)                                             
 cappid=$(sed -n "s/^DOMAIN = \"https:\/\/\(.*\)\.appspot.com\".*#.*/\1/p" ./config.py)                         
 response='y'                                                                                                   
