@@ -9,3 +9,4 @@ cv_globo.jpg
 *.iml
 *.xml
 .gitignore
+*.bak
