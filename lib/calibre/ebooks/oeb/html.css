@@ -273,13 +273,13 @@ small {
 sub {
   vertical-align: sub;
   font-size: smaller;
-  line-height: normal;
+  line-height: 140%;
 }
 
 sup {
   vertical-align: super;
   font-size: smaller;
-  line-height: normal;
+  line-height: 140%;
 }
 
 nobr {
@@ -303,10 +303,12 @@ ol {
   display: block;
   list-style-type: decimal;
   margin: 1em 0;
+  line-height: 140%;
 }
 
 li {
   display: list-item;
+  line-height: 140%;
 }
 
 /* nested lists have no top/bottom margins */
