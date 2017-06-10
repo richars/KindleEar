@@ -52,7 +52,7 @@ class Xiaodaowx(BaseFeedBook):
                 self.log.warn('This title not found.')
                 continue
             url = a['href']
-            urls.append((u'小道消息',title,url,None))
+            urls.append((u'InfoQ',title,url,None))
         if len(urls) == 0:
             self.log.warn('len of urls is zero.')
         return urls

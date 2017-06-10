@@ -4,12 +4,12 @@ from bs4 import BeautifulSoup
 from base import BaseFeedBook, URLOpener, string_of_tag
 
 def getBook():
-    return Xiaodaowx
+    return BigData1wx
     
 
-class Xiaodaowx(BaseFeedBook):
-    title                 =  u'小道消息'
-    description           =  u'小道消息微信'
+class BigData1wx(BaseFeedBook):
+    title                 =  u'大数据杂谈'
+    description           =  u'大数据杂谈微信'
     language              = 'zh-cn'
     feed_encoding         = "utf-8"
     page_encoding         = "utf-8"
@@ -27,7 +27,7 @@ class Xiaodaowx(BaseFeedBook):
     
     def ParseFeedUrls(self):
         #return lists like [(section,title,url,desc),..]
-        main = 'http://www.jintiankansha.me/column/UgZGXMbBpC'
+        main = 'http://www.jintiankansha.me/column/5ZvgvCnCO4'
         urls = []
         opener = URLOpener(self.host, timeout=90)
         result = opener.open(main)
@@ -52,7 +52,7 @@ class Xiaodaowx(BaseFeedBook):
                 self.log.warn('This title not found.')
                 continue
             url = a['href']
-            urls.append((u'小道消息',title,url,None))
+            urls.append((u'大数据杂谈',title,url,None))
         if len(urls) == 0:
             self.log.warn('len of urls is zero.')
         return urls
