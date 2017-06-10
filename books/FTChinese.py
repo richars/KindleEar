@@ -23,7 +23,7 @@ class FTChinese(BaseFeedBook):
         '''
         
     feeds = [
-            (u'每日新闻', 'http://www.ftchinese.com/rss/feed'),
+            (u'FT中文网', 'http://www.ftchinese.com/rss/feed'),
             ]
     
     def fetcharticle(self, url, opener, decoder):

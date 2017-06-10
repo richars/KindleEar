@@ -28,7 +28,7 @@ class Xueqiu(BaseFeedBook):
     remove_tags = ['meta']
     remove_attrs = ['xmlns']
 
-    feeds = [ (u'雪球今日话题', SHARE_FUCK_GFW_SRV % urllib.quote('http://xueqiu.com/hots/topic/rss'), True) ]
+    feeds = [ (u'今日话题', SHARE_FUCK_GFW_SRV % urllib.quote('http://xueqiu.com/hots/topic/rss'), True) ]
     
     def url4forwarder(self, url):
         #生成经过转发器的URL

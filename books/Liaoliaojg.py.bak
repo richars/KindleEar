@@ -15,7 +15,7 @@ class Liaoljg(BaseFeedBook):
     page_encoding         = "utf-8"
     mastheadfile          = "mh_economist.gif" 
     coverfile             = "cv_economist.jpg"
-    oldest_article        = 2
+    oldest_article        = 5
 #    deliver_days          = ['Friday']
 #    deliver_times         = [18]
     fulltext_by_readability = False
