@@ -1,9 +1,49 @@
+python helper.py
+appcfg.py update ./app.yaml ./module-worker.yaml
+appcfg.py update .
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #!/bin/bash                                                                                                    
                                                                                                                
 # ------------------------------------------                                                                   
-# ÂêçÁß∞ÔºöKindleEarÂÆâË£ÖËÑöÊú¨                                                                                      
-# ‰ΩúËÄÖÔºöricharsÔºåkindlefereÂü∫Á°Ä‰∏ä‰øÆÊîπ
-# Êõ¥Êñ∞Ôºö2017.02.09                                                                                             
+# √˚≥∆£∫KindleEar∞≤◊∞Ω≈±æ                                                                                      
+# ◊˜’ﬂ£∫richars£¨kindlefereª˘¥°…œ–ﬁ∏ƒ
+# ∏¸–¬£∫2017.02.09                                                                                             
 # ------------------------------------------                                                                   
                                                                                                                
 cd ~                                                                                                           
@@ -17,26 +57,26 @@ cemail=$(sed -n "s/^SRC_EMAIL = \"\(.*\)\".*#.*/\1/p" ./config.py)
 cappid=$(sed -n "s/^DOMAIN = \"https:\/\/\(.*\)\.appspot.com\".*#.*/\1/p" ./config.py)                         
 response='y'                                                                                                   
                                                                                                                
-echo 'ÂΩìÂâçÁöÑ Gmail ‰∏∫Ôºö'$cemail                                                                                
-echo 'ÂΩìÂâçÁöÑ APPID ‰∏∫Ôºö'$cappid                                                                                
+echo 'µ±«∞µƒ Gmail Œ™£∫'$cemail                                                                                
+echo 'µ±«∞µƒ APPID Œ™£∫'$cappid                                                                                
                                                                                                                
 if [ ! $cemail = "akindleear@gmail.com" -o ! $cappid = "kindleear" ]                                           
 then                                                                                                           
-    read -r -p "ÊòØÂê¶‰øÆÊîπ APP ‰ø°ÊÅØ? [y/N] " response                                                            
+    read -r -p " «∑Ò–ﬁ∏ƒ APP –≈œ¢? [y/N] " response                                                            
 fi                                                                                                             
                                                                                                                
 if [[ $response =~ ^([yY][eE][sS]|[yY])$ ]]                                                                    
 then                                                                                                           
-    echo -n "ËØ∑ËæìÂÖ•‰Ω†ÁöÑ Gmail Âú∞ÂùÄÔºö"                                                                          
+    echo -n "«Î ‰»Îƒ„µƒ Gmail µÿ÷∑£∫"                                                                          
     read email                                                                                                 
-    echo "ÊÇ®ËæìÂÖ•ÁöÑ Gmail Âú∞ÂùÄÊòØÔºö'$email'"                                                                     
+    echo "ƒ˙ ‰»Îµƒ Gmail µÿ÷∑ «£∫'$email'"                                                                     
     sed -i "s/^SRC_EMAIL = \".*\"/SRC_EMAIL = \"$email\"/g" ./config.py                                        
-    echo -n "ËØ∑ËæìÂÖ•‰Ω†ÁöÑ APP IDÔºö"                                                                              
+    echo -n "«Î ‰»Îƒ„µƒ APP ID£∫"                                                                              
     read appid                                                                                                 
-    echo "ÊÇ®ËæìÂÖ•ÁöÑ APP ID ÊòØÔºö'$appid'"                                                                        
+    echo "ƒ˙ ‰»Îµƒ APP ID  «£∫'$appid'"                                                                        
     sed -i "s/^application: .*/application: $appid/g" ./app.yaml ./module-worker.yaml                          
     sed -i "s/^DOMAIN = \"https:\/\/.*\.appspot.com\"/DOMAIN = \"https:\/\/$appid\.appspot.com\"/g" ./config.py
 fi                                                                                                             
                                                                                                                
 appcfg.py update app.yaml module-worker.yaml --no_cookie --noauth_local_webserver                              
-appcfg.py update . --no_cookie --noauth_local_webserver                                                        
+appcfg.py update . --no_cookie --noauth_local_webserver        
