@@ -8,5 +8,5 @@ cv_correio.jpg
 cv_globo.jpg
 *.iml
 *.xml
-.gitignore
 *.bak	
+.gitignore
