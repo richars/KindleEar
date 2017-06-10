@@ -46,11 +46,13 @@ html, div, map, dt, isindex, form {
 
 body {
   display: block;
+  line-height: 140%;
 }
 
 p, dl, multicol {
   display: block;
   margin: 1em 0;
+  line-height: 140%;
 }
 
 dd {
