@@ -46,13 +46,11 @@ html, div, map, dt, isindex, form {
 
 body {
   display: block;
-  line-height: 140%;
 }
 
 p, dl, multicol {
   display: block;
   margin: 1em 0;
-  line-height: 140%;
 }
 
 dd {
@@ -273,13 +271,13 @@ small {
 sub {
   vertical-align: sub;
   font-size: smaller;
-  line-height: 140%;
+  line-height: normal;
 }
 
 sup {
   vertical-align: super;
   font-size: smaller;
-  line-height: 140%;
+  line-height: normal;
 }
 
 nobr {
@@ -303,12 +301,10 @@ ol {
   display: block;
   list-style-type: decimal;
   margin: 1em 0;
-  line-height: 140%;
 }
 
 li {
   display: list-item;
-  line-height: 140%;
 }
 
 /* nested lists have no top/bottom margins */
