@@ -43,7 +43,8 @@ class BigData2wx(BaseFeedBook):
         for article in section.find_all('div', class_='cell item', limit=10):
             timestamp = article.find('span', class_='small fade')
             timestamp = string_of_tag(timestamp).strip()
-            if u'小时' not in timestamp and u'昨天' not in timestamp:
+            #if u'小时' not in timestamp and u'昨天' not in timestamp:
+            if u'小时' not in timestamp:
                 continue
             span = article.find('span', class_='item_title')
             a = span.find('a', href=True)
