@@ -8,8 +8,8 @@ def getBook():
     
 
 class PhoenixW(BaseFeedBook):
-    title                 =  u'·ï»ËÖÜ¿¯'
-    description           =  u'·ï»ËÖÜ¿¯Î¢ĞÅ'
+    title                 =  u'å‡¤å‡°å‘¨åˆŠ'
+    description           =  u'å‡¤å‡°å‘¨åˆŠå¾®ä¿¡'
     language              = 'zh-cn'
     feed_encoding         = "utf-8"
     page_encoding         = "utf-8"
@@ -46,13 +46,13 @@ class PhoenixW(BaseFeedBook):
         content = result.content.decode(self.feed_encoding)
         soup = BeautifulSoup(content, "lxml")
         
-        #¿ªÊ¼½âÎö
+        #å¼€å§‹è§£æ
         section = soup.find('div', class_='entries')
         for article in section.find_all('div', class_='cell item', limit=10):
             timestamp = article.find('span', class_='small fade')
             timestamp = string_of_tag(timestamp).strip()
-#            if u'Ğ¡Ê±' not in timestamp and u'×òÌì' not in timestamp:
-            if u'Ğ¡Ê±' not in timestamp:
+#            if u'å°æ—¶' not in timestamp and u'æ˜¨å¤©' not in timestamp:
+            if u'å°æ—¶' not in timestamp:
                 continue
             span = article.find('span', class_='item_title')
             a = span.find('a', href=True)
@@ -60,12 +60,12 @@ class PhoenixW(BaseFeedBook):
             if not title:
                 self.log.warn('This title not found.')
                 continue
-            if u'[Ô­´´]' not in title:
+            if u'[åŸåˆ›]' not in title:
                 continue
-            if u'¶©ÔÄÓĞÀñ' in title or u'¡¶·ï»ËÖÜ¿¯¡·' in title:
+            if u'è®¢é˜…æœ‰ç¤¼' in title or u'ã€Šå‡¤å‡°å‘¨åˆŠã€‹' in title:
                 continue
             url = a['href']
-            urls.append((u'·ï»ËWeekly',title,url,None))
+            urls.append((u'å‡¤å‡°Weekly',title,url,None))
         if len(urls) == 0:
             self.log.warn('len of urls is zero.')
         return urls
