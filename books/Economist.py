@@ -37,7 +37,7 @@ class Economist(BaseFeedBook):
         ('Obituary', 'http://www.economist.com/feeds/print-sections/82/obituary.xml'),
         ]
     
-    #ÏÂÃæÊÇÔÚÆäÍøÕ¾»¹Ã»ÓĞÌá¹©RSSÇ°µÄ×¥È¡·½Ê½£¬ÏÖÔÚÒÑ¾­²»ĞèÒªÁË£¬ÒòÎªÖ±½ÓÓĞRSSÔ´ÁË
+    #ä¸‹é¢æ˜¯åœ¨å…¶ç½‘ç«™è¿˜æ²¡æœ‰æä¾›RSSå‰çš„æŠ“å–æ–¹å¼ï¼Œç°åœ¨å·²ç»ä¸éœ€è¦äº†ï¼Œå› ä¸ºç›´æ¥æœ‰RSSæºäº†
     """
     feeds = [
             ('Index', 'http://www.economist.com/printedition'),
@@ -57,7 +57,7 @@ class Economist(BaseFeedBook):
         content = result.content.decode(self.feed_encoding)
         soup = BeautifulSoup(content, "lxml")
         
-        #GAE»ñÈ¡µ½µÄÊÇÒÆ¶¯¶ËÍøÒ³£¬ºÍPC»ñÈ¡µ½µÄÍøÒ³ÓĞĞ©²»Ò»Ñù
+        #GAEï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ¶ï¿½ï¿½ï¿½ï¿½ï¿½Ò³ï¿½ï¿½ï¿½ï¿½PCï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò³ï¿½ï¿½Ğ©ï¿½ï¿½Ò»ï¿½ï¿½
         for section in soup.find_all('section', attrs={'id':lambda x: x and 'section' in x}):
             h4 = section.find('h4')
             if h4 is None:
@@ -89,7 +89,7 @@ class Economist(BaseFeedBook):
                             urls.append((sectitle,title,url,None))
                             urladded.add(url)
                             
-        #ÓĞĞ©ÈË»ñÈ¡µ½µÄÊÇPC¶ËÍøÒ³£¬¹ÖÁË£¬ÔÙ·ÖÎöÒ»´ÎPC¶ËÍøÒ³°É  
+        #GAEè·å–åˆ°çš„æ˜¯ç§»åŠ¨ç«¯ç½‘é¡µï¼Œå’ŒPCè·å–åˆ°çš„ç½‘é¡µæœ‰äº›ä¸ä¸€æ ·
         if len(urls) == 0:
             for section in soup.find_all('div', attrs={'id':lambda x: x and 'section' in x}):
                 h4 = section.find('h4')
