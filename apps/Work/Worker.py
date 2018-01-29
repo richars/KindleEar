@@ -381,7 +381,7 @@ class Worker(BaseHandler):
         book.feeds = [(feed.title, feed.url)]
         book.url_filters = [flt.url for flt in user.urlfilter]
 
-        try: #书的质量可能不一，一本书的异常不能影响其他书籍的推送
+        try: #书的质量可能不一，一本书的异常不能影响其他书籍的推送,修改
             for sec_or_media, url, title, content, brief, thumbnail in book.Items():
                 if not sec_or_media or not title or not content:
                     continue

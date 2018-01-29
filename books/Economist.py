@@ -57,7 +57,7 @@ class Economist(BaseFeedBook):
         content = result.content.decode(self.feed_encoding)
         soup = BeautifulSoup(content, "lxml")
         
-        #GAE��ȡ�������ƶ�����ҳ����PC��ȡ������ҳ��Щ��һ��
+        #GAE
         for section in soup.find_all('section', attrs={'id':lambda x: x and 'section' in x}):
             h4 = section.find('h4')
             if h4 is None:
