@@ -49,8 +49,7 @@ class TheEconomist(BaseFeedBook):
                       'atest-updates-panel-card__body','latest-updates-panel-card__title','latest-updates-panel-card__subtitle',
                       'latest-updates-panel-card__time','blog-post__siblings-list-aside ','blog-post__siblings-list-aside',
                       'blog-post__siblings-list-header ','blog-post__siblings-list-header','special-report-header',
-                      'special-report-header-sponser','content_clearfix','column-right','blog-post__asideable-wrapper',
-                      'newsletter-form'
+                      'special-report-header-sponser','content_clearfix','column-right','blog-post__asideable-wrapper'
                       ]
 #    remove_ids = ['more-kallery']
     remove_tags = [
@@ -116,7 +115,7 @@ class TheEconomist(BaseFeedBook):
         return urls
     
     extra_css= '''
-    .flytitle-and-title__flytitle {font-size: large; font-weight: bold; display: block;}
+    .flytitle-and-title__flytitle {font-size: large; font-weight: bold}
     .flytitle-and-title__title {font-size: large; font-weight: bold}
     .blog-post__rubric { font-weight: bold;  }
     figcaption {font-style: italic}
