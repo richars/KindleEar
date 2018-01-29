@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # ------------------------------------------
-# Ãû³Æ£ºKindleEar°²×°½Å±¾
-# ×÷Õß£ºkindlefere.com
-# Ò³Ãæ£ºhttp://kindlefere.com/post/19.html
-# ¸üĞÂ£º2017.02.09
+# åç§°ï¼šKindleEarå®‰è£…è„šæœ¬
+# ä½œè€…ï¼škindlefere.com
+# é¡µé¢ï¼šhttp://kindlefere.com/post/19.html
+# æ›´æ–°ï¼š2017.02.09
 # ------------------------------------------
 
 cd ~
@@ -14,7 +14,7 @@ then
     git clone https://github.com/cdhigh/KindleEar.git
 else
     response='y'
-    read -r -p 'ÒÑ´æÔÚ KindleEar Ô´Âë£¬ÊÇ·ñ¸üĞÂ£¿[y/N]' response
+    read -r -p 'å·²å­˜åœ¨ KindleEar æºç ï¼Œæ˜¯å¦æ›´æ–°ï¼Ÿ[y/N]' response
     if [[ $response =~ ^([yY][eE][sS]|[yY])$ ]]
     then
         # rm -rf ./KindleEar
@@ -31,23 +31,23 @@ cemail=$(sed -n "s/^SRC_EMAIL = \"\(.*\)\".*#.*/\1/p" ./config.py)
 cappid=$(sed -n "s/^DOMAIN = \"https:\/\/\(.*\)\.appspot.com\".*#.*/\1/p" ./config.py)
 response='y'
 
-echo 'µ±Ç°µÄ Gmail Îª£º'$cemail
-echo 'µ±Ç°µÄ APPID Îª£º'$cappid
+echo 'å½“å‰çš„ Gmail ä¸ºï¼š'$cemail
+echo 'å½“å‰çš„ APPID ä¸ºï¼š'$cappid
 
 if [ ! $cemail = "akindleear@gmail.com" -o ! $cappid = "kindleear" ]
 then
-    read -r -p "ÊÇ·ñĞŞ¸Ä APP ĞÅÏ¢? [y/N] " response
+    read -r -p "æ˜¯å¦ä¿®æ”¹ APP ä¿¡æ¯? [y/N] " response
 fi
 
 if [[ $response =~ ^([yY][eE][sS]|[yY])$ ]]
 then
-    echo -n "ÇëÊäÈëÄãµÄ Gmail µØÖ·£º"
+    echo -n "è¯·è¾“å…¥ä½ çš„ Gmail åœ°å€ï¼š"
     read email
-    echo "ÄúÊäÈëµÄ Gmail µØÖ·ÊÇ£º'$email'"
+    echo "æ‚¨è¾“å…¥çš„ Gmail åœ°å€æ˜¯ï¼š'$email'"
     sed -i "s/^SRC_EMAIL = \".*\"/SRC_EMAIL = \"$email\"/g" ./config.py
-    echo -n "ÇëÊäÈëÄãµÄ APP ID£º"
+    echo -n "è¯·è¾“å…¥ä½ çš„ APP IDï¼š"
     read appid
-    echo "ÄúÊäÈëµÄ APP ID ÊÇ£º'$appid'"
+    echo "æ‚¨è¾“å…¥çš„ APP ID æ˜¯ï¼š'$appid'"
     sed -i "s/^application: .*/application: $appid/g" ./app.yaml ./module-worker.yaml
     sed -i "s/^DOMAIN = \"https:\/\/.*\.appspot.com\"/DOMAIN = \"https:\/\/$appid\.appspot.com\"/g" ./config.py
 fi
