@@ -6,7 +6,7 @@
 # rexdf <https://github.com/rexdf>
 
 import datetime
-
+from operator import attrgetter
 import web
 try:
     import json
@@ -17,6 +17,8 @@ from google.appengine.api import memcache
 from apps.utils import etagged
 from apps.BaseHandler import BaseHandler
 from apps.dbModels import *
+from books import BookClasses, BookClass
+from books.base import BaseComicBook
 
 class MySubscription(BaseHandler):
     __url__ = "/my"
@@ -25,8 +27,12 @@ class MySubscription(BaseHandler):
     def GET(self, tips=None):
         user = self.getcurrentuser()
         myfeeds = user.ownfeeds.feeds if user.ownfeeds else None
-        return self.render('my.html', "My subscription",current='my',user=user,
-            books=Book.all().filter("builtin = ",True),myfeeds=myfeeds,tips=tips)
+        books = list(Book.all().filter("builtin = ", True))
+        #简单排个序，为什么不用数据库直接排序是因为Datastore数据库需要建立索引才能排序
+        books.sort(key=attrgetter('title'))
+        
+        return self.render('my.html', "My subscription", current='my', user=user,
+            books=books, myfeeds=myfeeds, tips=tips)
     
     def POST(self): # 添加自定义RSS
         user = self.getcurrentuser()
@@ -39,11 +45,12 @@ class MySubscription(BaseHandler):
         if not url.lower().startswith('http'): #http and https
             url = 'http://' + url
         assert user.ownfeeds
-        Feed(title=title,url=url,book=user.ownfeeds,isfulltext=isfulltext,
+        Feed(title=title, url=url, book=user.ownfeeds, isfulltext=isfulltext,
             time=datetime.datetime.utcnow()).put()
-        memcache.delete('%d.feedscount'%user.ownfeeds.key().id())
+        memcache.delete('%d.feedscount' % user.ownfeeds.key().id())
         raise web.seeother('/my')
 
+#添加/删除自定义RSS订阅的AJAX处理函数
 class FeedsAjax(BaseHandler):
     __url__ = "/feeds/(.*)"
     
@@ -61,13 +68,13 @@ class FeedsAjax(BaseHandler):
             feed = Feed.get_by_id(feedid)
             if feed:
                 feed.delete()
-                return json.dumps({'status':'ok'})
+                return json.dumps({'status': 'ok'})
             else:
                 return json.dumps({'status': _('The feed(%d) not exist!') % feedid})
         elif mgrType.lower() == 'add':
             title = web.input().get('title')
             url = web.input().get('url')
-            isfulltext = bool(web.input().get('fulltext','').lower() == 'true')
+            isfulltext = bool(web.input().get('fulltext', '').lower() == 'true')
             respDict = {'status':'ok', 'title':title, 'url':url, 'isfulltext':isfulltext}
             
             if not title or not url:
@@ -84,25 +91,28 @@ class FeedsAjax(BaseHandler):
             respDict['feedid'] = fd.key().id()
             memcache.delete('%d.feedscount' % user.ownfeeds.key().id())
             return json.dumps(respDict)
+        else:
+            return json.dumps({'status': 'unknown command: %s' % mgrType})
+        
 
+#订阅/退订内置书籍的AJAX处理函数
 class BooksAjax(BaseHandler):
     __url__ = "/books/(.*)"
     
     def POST(self, mgrType):
         web.header('Content-Type', 'application/json')
         user = self.getcurrentuser()
+        id_ = web.input().get('id_')
+        try:
+            id_ = int(id_)
+        except:
+            return json.dumps({'status': _('The id is invalid!')})
         
+        bk = Book.get_by_id(id_)
+        if not bk:
+            return json.dumps({'status': _('The book(%d) not exist!') % id_})
+            
         if mgrType.lower() == 'unsubscribe':
-            id_ = web.input().get('id_')
-            try:
-                id_ = int(id_)
-            except:
-                return json.dumps({'status': _('The id is invalid!')})
-            
-            bk = Book.get_by_id(id_)
-            if not bk:
-                return json.dumps({'status': _('The book(%d) not exist!') % id_})
-            
             if user.name in bk.users:
                 bk.users.remove(user.name)
                 bk.separate = False
@@ -115,23 +125,21 @@ class BooksAjax(BaseHandler):
                 
             return json.dumps({'status':'ok', 'title': bk.title, 'desc': bk.description})
         elif mgrType.lower() == 'subscribe':
-            id_ = web.input().get('id_')
             separate = web.input().get('separate', '')
             
             respDict = {'status':'ok'}
             
-            try:
-                id_ = int(id_)
-            except:
-                return json.dumps({'status': _('The id is invalid')})
-            
-            bk = Book.get_by_id(id_)
-            if not bk:
+            bkcls = BookClass(bk.title)
+            if not bkcls:
                 return json.dumps({'status': 'The book(%d) not exist!' % id_})
             
+            #如果是漫画类，则不管是否选择了“单独推送”，都自动变成“单独推送”
+            if issubclass(bkcls, BaseComicBook):
+                separate = 'true'
+                
             if user.name not in bk.users:
                 bk.users.append(user.name)
-                bk.separate = bool(separate.lower() in ('true','1'))
+                bk.separate = bool(separate.lower() in ('true', '1'))
                 bk.put()
                 
             respDict['title'] = bk.title
@@ -140,7 +148,9 @@ class BooksAjax(BaseHandler):
             respDict['subscription_info'] = bool(user.subscription_info(bk.title))
             respDict['separate'] = bk.separate
             return json.dumps(respDict)
-            
+        else:
+            return json.dumps({'status': 'unknown command: %s' % mgrType})
+        
 class Subscribe(BaseHandler):
     __url__ = "/subscribe/(.*)"
     def GET(self, id_):
@@ -154,9 +164,19 @@ class Subscribe(BaseHandler):
         if not bk:
             return "the book(%d) not exist!<br />" % id_
         
+        bkcls = BookClass(bk.title)
+        if not bkcls:
+            return "the book(%d) not exist!<br />" % id_
+        
+        #如果是漫画类，则不管是否选择了“单独推送”，都自动变成“单独推送”
+        if issubclass(bkcls, BaseComicBook):
+            separate = 'true'
+        else:
+            separate = web.input().get('separate', 'true')
+            
         if main.session.username not in bk.users:
             bk.users.append(main.session.username)
-            bk.separate = bool(web.input().get('separate') in ('true','1'))
+            bk.separate = bool(separate in ('true', '1'))
             bk.put()
         raise web.seeother('/my')
         
@@ -213,7 +233,7 @@ class BookLoginInfo(BaseHandler):
             return "Not exist the book!<br />"
         
         subs_info = user.subscription_info(bk.title)
-        return self.render('booklogininfo.html', "Book Login Infomation",bk=bk,subs_info=subs_info,tips=tips)
+        return self.render('booklogininfo.html', "Book Login Infomation", bk=bk, subs_info=subs_info, tips=tips)
     
     def POST(self, id_):
         user = self.getcurrentuser()
@@ -237,7 +257,7 @@ class BookLoginInfo(BaseHandler):
                 subs_info.password = password
                 subs_info.put()
         elif account and password:
-            subs_info = SubscriptionInfo(account=account,user=user,title=bk.title)
+            subs_info = SubscriptionInfo(account=account, user=user, title=bk.title)
             subs_info.put() #先保存一次才有user信息，然后才能加密
             subs_info.password = password
             subs_info.put()

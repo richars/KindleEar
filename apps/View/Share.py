@@ -59,7 +59,7 @@ class Share(BaseHandler):
             main.log.warn('No have wiz mail yet.')
             return "No have wiz mail yet."
             
-        book = BaseUrlBook()
+        book = BaseUrlBook(user=user)
         book.title = book.description = action
         book.language = user.ownfeeds.language
         book.keep_image = user.ownfeeds.keep_image
@@ -127,8 +127,6 @@ class Share(BaseHandler):
             return "[Share]Fetch url failed."
     
     def SaveToPocket(self, user, action, orgUrl):
-        INSTAPAPER_API_ADD_URL = 'https://www.instapaper.com/api/add'
-
         web.header('Content-type', "text/html; charset=utf-8")
         
         T_INFO = u"""<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
@@ -159,6 +157,8 @@ class Share(BaseHandler):
         return info.encode('utf-8')
         
     def SaveToInstapaper(self, user, action, orgUrl):
+        INSTAPAPER_API_ADD_URL = 'https://www.instapaper.com/api/add'
+        
         web.header('Content-type', "text/html; charset=utf-8")
         
         T_INFO = u"""<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>

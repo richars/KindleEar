@@ -168,20 +168,23 @@ class BaseFeedBook:
     #------------------------------------------------------------
     # 下面的内容为类实现细节
     #------------------------------------------------------------
-    def __init__(self, log=None, imgindex=0):
+    def __init__(self, log=None, imgindex=0, opts=None, user=None):
         self.log = default_log if log is None else log
         self.compiled_urlfilters = []
         self._imgindex = imgindex
-
+        self.opts = opts
+        self.user = user
+        self.last_delivered_volume = '' #如果需要在推送书籍的标题中提供当前期号之类的信息，可以使用此属性
+        
     @property
     def timeout(self):
         return self.network_timeout if self.network_timeout else CONNECTION_TIMEOUT
-
+        
     @property
     def imgindex(self):
         self._imgindex += 1
         return self._imgindex
-
+        
     def isfiltered(self, url):
         if not self.url_filters:
             return False
@@ -194,11 +197,19 @@ class BaseFeedBook:
             if flt.match(url):
                 return True
         return False
-
+        
+    #返回当前任务的用户名
+    def UserName(self):
+        return self.user.name if self.user else 'admin'
+    
+    #返回最近推送到期号（如果信息可用的话）
+    def LastDeliveredVolume(self):
+        return self.last_delivered_volume
+        
     @classmethod
     def urljoin(self, base, url):
         #urlparse.urljoin()处理有..的链接有点问题，此函数修正此问题。
-        join = urlparse.urljoin(base,url)
+        join = urlparse.urljoin(base, url)
         url = urlparse.urlsplit(join)
         path = os.path.normpath(url.path)
         if IsRunInLocal: #假定调试环境为windows
@@ -253,14 +264,9 @@ class BaseFeedBook:
             result = opener.open(url)
             if result.status_code == 200 and result.content:
                 #debug_mail(result.content, 'feed.xml')
+                decoder = AutoDecoder(isfeed=True)
+                content = self.AutoDecodeContent(result.content, decoder, self.feed_encoding, opener.realurl, result.headers)
                 
-                if self.feed_encoding:
-                    try:
-                        content = result.content.decode(self.feed_encoding)
-                    except UnicodeDecodeError:
-                        content = AutoDecoder(True).decode(result.content,opener.realurl,result.headers)
-                else:
-                    content = AutoDecoder(True).decode(result.content,opener.realurl,result.headers)
                 feed = feedparser.parse(content)
                 
                 for e in feed['entries'][:self.max_articles_per_feed]:
@@ -316,14 +322,18 @@ class BaseFeedBook:
                                 continue
                             else:
                                 self.log.warn('Fulltext feed item no has desc,link to webpage for article.(%s)' % title)
-                    urls.append((section, title, urlfeed, desc))
+                    
                     urladded.add(urlfeed)
+                    #针对URL里面有unicode字符的处理，否则会出现Bad request
+                    #后面参数里面的那一堆“乱码”是要求不处理ASCII的特殊符号，只处理非ASCII字符
+                    urlfeed = urllib.quote_plus(urlfeed.encode('utf-8'), r'''~`!@#$%^&*()|\\/,.<>;:"'{}[]?=-_+''')
+                    urls.append((section, title, urlfeed, desc))
             else:
                 self.log.warn('fetch rss failed(%s):%s' % (URLOpener.CodeMap(result.status_code), url))
                 
         return urls
 
-    def Items(self, opts=None, user=None):
+    def Items(self):
         """
         生成器，返回一个元组
         对于HTML：section,url,title,content,brief,thumbnail
@@ -333,8 +343,8 @@ class BaseFeedBook:
         readability = self.readability if self.fulltext_by_readability else self.readability_by_soup
         prevsection = ''
         opener = URLOpener(self.host, timeout=self.timeout, headers=self.extra_header)
-        decoder = AutoDecoder(False)
-        for section, ftitle, url, desc in urls:
+        decoder = AutoDecoder(isfeed=False)
+        for section, fTitle, url, desc in urls:
             if not desc: #非全文RSS
                 if section != prevsection or prevsection == '':
                     decoder.encoding = '' #每个小节都重新检测编码
@@ -343,7 +353,8 @@ class BaseFeedBook:
                     if self.needs_subscription:
                         result = self.login(opener, decoder)
                         #if result:
-                        #    debug_mail(result.content, 'login_result.html')
+                        #     debug_mail(result.content, 'login_result.html')
+                        #    debug_save_ftp(result.content, 'login_result.html')
                         #else:
                         #    self.log.warn('func login return none!')                        
         
@@ -351,17 +362,17 @@ class BaseFeedBook:
                 if not article:
                     continue
             else:
-                article = self.FragToXhtml(desc, ftitle)
+                article = self.FragToXhtml(desc, fTitle)
             
             #如果是图片，title则是mime
-            for title, imgurl, imgfn, content, brief, thumbnail in readability(article,url,opts,user):
+            for title, imgurl, imgfn, content, brief, thumbnail in readability(article, url):
                 if title.startswith(r'image/'): #图片
                     yield (title, imgurl, imgfn, content, brief, thumbnail)
                 else:
-                    if user and user.use_title_in_feed:
-                        title = ftitle
+                    if self.user and self.user.use_title_in_feed:
+                        title = fTitle
                     elif not title:
-                        title = ftitle
+                        title = fTitle
                     content = self.postprocess(content)
                     yield (section, url, title, content, brief, thumbnail)
 
@@ -428,7 +439,7 @@ class BaseFeedBook:
             #self.log.debug('Login url : ' + target_url)
             return opener.open(target_url)
         else:
-            #self.log.debug('field_dic:%s' % repr(fields_dic))
+            #self.log.info('field_dic:%s' % repr(fields_dic))
             target_url = action
             return opener.open(target_url, data=fields_dic)
             
@@ -480,24 +491,33 @@ class BaseFeedBook:
         """链接网络，下载网页并解码"""
         result = opener.open(url)
         status_code, content = result.status_code, result.content
-        if status_code not in (200,206) or not content:
+        if status_code not in (200, 206) or not content:
             self.log.warn('fetch page failed(%s):%s.' % (URLOpener.CodeMap(status_code), url))
             return None
         
         #debug_mail(content)
+        return self.AutoDecodeContent(content, decoder, self.page_encoding, opener.realurl, result.headers)
         
-        if self.page_encoding:
+    #自动解码，返回解码后的网页
+    #content: 要解码的网页
+    #decoder: AutoDecoder实例
+    #defaultEncoding: 默认的编码
+    #url: 网页的原始url地址（注意可能和之前opener使用的url不同，因为有可能发生了重定向，所以建议使用opener.realurl属性）
+    #headers: 网页返回的http响应头
+    def AutoDecodeContent(self, content, decoder, defaultEncoding=None, url=None, headers=None):
+        if defaultEncoding:
             try:
-                return content.decode(self.page_encoding)
+                return content.decode(defaultEncoding)
             except UnicodeDecodeError:
-                return decoder.decode(content,opener.realurl,result.headers)
+                return decoder.decode(content, url, headers)
         else:
-            return decoder.decode(content,opener.realurl,result.headers)
-
-    def readability(self, article, url, opts=None, user=None):
+            return decoder.decode(content, url, headers)
+        
+    def readability(self, article, url):
         """ 使用readability-lxml处理全文信息
         因为图片文件占内存，为了节省内存，这个函数也做为生成器
         """
+        user = self.user
         content = self.preprocess(article)
         if not content:
             return
@@ -513,8 +533,8 @@ class BaseFeedBook:
                 imgmime = r"image/" + imgtype
                 fnimg = "img%d.%s" % (self.imgindex, 'jpg' if imgtype=='jpeg' else imgtype)
                 yield (imgmime, url, fnimg, content, None, None)
-                tmphtml = '<html><head><title>Picture</title></head><body><img src="%s" /></body></html>' % fnimg
-                yield ('Picture', None, None, tmphtml, '', None)
+                tmpHtml = '<html><head><title>Picture</title></head><body><img src="%s" /></body></html>' % fnimg
+                yield ('Picture', None, None, tmpHtml, '', None)
             else:
                 self.log.warn('article is invalid.[%s]' % url)
             return
@@ -576,8 +596,8 @@ class BaseFeedBook:
         if self.remove_tags:
             for tag in soup.find_all(self.remove_tags):
                 tag.decompose()
-        for id in self.remove_ids:
-            for tag in soup.find_all(attrs={"id":id}):
+        for id_ in self.remove_ids:
+            for tag in soup.find_all(attrs={"id":id_}):
                 tag.decompose()
         for cls in self.remove_classes:
             for tag in soup.find_all(attrs={"class":cls}):
@@ -604,33 +624,17 @@ class BaseFeedBook:
         thumbnail = None
 
         if self.keep_image:
+            self.RectifyImageSrcInSoup(soup, url)
             opener = URLOpener(self.host, timeout=self.timeout, headers=self.extra_header)
             for img in soup.find_all('img'):
-                #现在使用延迟加载图片技术的网站越来越多了，这里处理一下
-                #注意：如果data-src之类的属性保存的不是真实url就没辙了
-                imgurl = img['src'] if 'src' in img.attrs else ''
+                imgurl = img['src'] if 'src' in img.attrs else None
                 if not imgurl:
-                    for attr in img.attrs:
-                        if attr != 'src' and 'src' in attr: #很多网站使用data-src
-                            imgurl = img[attr]
-                            break
-                if not imgurl:
-                    img.decompose()
                     continue
-                if not imgurl.startswith('data:'):
-                    if not imgurl.startswith('http'):
-                        imgurl = self.urljoin(url, imgurl)
-                    if self.fetch_img_via_ssl and url.startswith('https://'):
-                        imgurl = imgurl.replace('http://', 'https://')
-                    if self.isfiltered(imgurl):
-                        self.log.warn('img filtered : %s' % imgurl)
-                        img.decompose()
-                        continue
-                
+                    
                 imgresult = opener.open(imgurl)
-                imgcontent = self.process_image(imgresult.content, opts) if imgresult.status_code == 200 else None
+                imgcontent = self.process_image(imgresult.content) if imgresult.status_code == 200 else None
                 if imgcontent:
-                    if isinstance(imgcontent, list): #一个图片分隔为多个图片
+                    if isinstance(imgcontent, (list, tuple)): #一个图片分隔为多个图片
                         imgIndex = self.imgindex
                         lastImg = img
                         imgPartUrl = imgurl
@@ -692,16 +696,15 @@ class BaseFeedBook:
         self.soupprocessex(soup)
 
         #插入分享链接，如果有插入qrcode，则返回(imgName, imgContent)
-        if user:
-            qrimg = self.AppendShareLinksToArticle(soup, user, url)
-            if qrimg:
-                yield ('image/jpeg', url, qrimg[0], qrimg[1], None, None)
+        qrimg = self.AppendShareLinksToArticle(soup, url)
+        if qrimg:
+            yield ('image/jpeg', url, qrimg[0], qrimg[1], None, None)
 
         content = unicode(soup)
 
-        #提取文章内容的前面一部分做为摘要
+        #提取文章内容的前面一部分做为摘要，[漫画模式不需要摘要]
         brief = u''
-        if GENERATE_TOC_DESC:
+        if GENERATE_TOC_DESC and ((not user) or user.book_mode != 'comic'):
             for h in body.find_all(['h1','h2']): # 去掉h1/h2，避免和标题重复
                 h.decompose()
             for s in body.stripped_strings:
@@ -713,10 +716,11 @@ class BaseFeedBook:
 
         yield (title, None, None, content, brief, thumbnail)
 
-    def readability_by_soup(self, article, url, opts=None, user=None):
+    def readability_by_soup(self, article, url):
         """ 使用BeautifulSoup手动解析网页，提取正文内容
         因为图片文件占内存，为了节省内存，这个函数也做为生成器
         """
+        user = self.user
         content = self.preprocess(article)
         soup = BeautifulSoup(content, "lxml")
 
@@ -761,8 +765,8 @@ class BaseFeedBook:
 
         for tag in soup.find_all(remove_tags):
             tag.decompose()
-        for id in remove_ids:
-            for tag in soup.find_all(attrs={"id":id}):
+        for id_ in remove_ids:
+            for tag in soup.find_all(attrs={"id":id_}):
                 tag.decompose()
         for cls in remove_classes:
             for tag in soup.find_all(attrs={"class":cls}):
@@ -784,31 +788,15 @@ class BaseFeedBook:
         thumbnail = None
 
         if self.keep_image:
+            self.RectifyImageSrcInSoup(soup, url)
             opener = URLOpener(self.host, timeout=self.timeout, headers=self.extra_header)
             for img in soup.find_all('img'):
-                #现在使用延迟加载图片技术的网站越来越多了，这里处理一下
-                #注意：如果data-src之类的属性保存的不是真实url就没辙了
-                imgurl = img['src'] if 'src' in img.attrs else ''
+                imgurl = img['src'] if 'src' in img.attrs else None
                 if not imgurl:
-                    for attr in img.attrs:
-                        if attr != 'src' and 'src' in attr: #很多网站使用data-src
-                            imgurl = img[attr]
-                            break
-                if not imgurl:
-                    img.decompose()
                     continue
-                if not imgurl.startswith('data:'):
-                    if not imgurl.startswith('http'):
-                        imgurl = self.urljoin(url, imgurl)
-                    if self.fetch_img_via_ssl and url.startswith('https://'):
-                        imgurl = imgurl.replace('http://', 'https://')
-                    if self.isfiltered(imgurl):
-                        self.log.warn('img filtered:%s' % imgurl)
-                        img.decompose()
-                        continue
                 
                 imgresult = opener.open(imgurl)
-                imgcontent = self.process_image(imgresult.content, opts) if imgresult.status_code == 200 else None
+                imgcontent = self.process_image(imgresult.content) if imgresult.status_code == 200 else None
                 if imgcontent:
                     if isinstance(imgcontent, list): #一个图片分隔为多个图片
                         imgIndex = self.imgindex
@@ -894,16 +882,15 @@ class BaseFeedBook:
         self.soupprocessex(soup)
 
         #插入分享链接，如果插入了qrcode，则返回(imgName, imgContent)
-        if user:
-            qrimg = self.AppendShareLinksToArticle(soup, user, url)
-            if qrimg:
-                yield ('image/jpeg', url, qrimg[0], qrimg[1], None, None)
+        qrimg = self.AppendShareLinksToArticle(soup, url)
+        if qrimg:
+            yield ('image/jpeg', url, qrimg[0], qrimg[1], None, None)
                 
         content = unicode(soup)
 
-        #提取文章内容的前面一部分做为摘要
+        #提取文章内容的前面一部分做为摘要，[漫画模式不需要摘要]
         brief = u''
-        if GENERATE_TOC_DESC:
+        if GENERATE_TOC_DESC and ((not user) or user.book_mode != 'comic'):
             for h in body.find_all(['h1','h2']): # 去掉h1/h2，避免和标题重复
                 h.decompose()
             for s in body.stripped_strings:
@@ -915,11 +902,47 @@ class BaseFeedBook:
 
         yield (title, None, None, content, brief, thumbnail)
     
-    #根据一些配置，对图像进行处理，比如缩小，转灰度图，转格式，图像分隔等
-    def process_image(self, data, opts):
-        if not data:
-            return
+    #如果需要，纠正或规则化soup里面的图片地址，比如延迟加载等
+    def RectifyImageSrcInSoup(self, soup, url=None):
+        for img in soup.find_all('img'):
+            #现在使用延迟加载图片技术的网站越来越多了，这里处理一下
+            #注意：如果data-src|data-original|file之类的属性保存的不是真实url就没辙了
+            imgUrl = img['src'] if 'src' in img.attrs else ''
+            if not imgUrl or imgUrl.endswith('/none.gif'):
+                for attr in img.attrs:
+                    if attr != 'src' and (('src' in attr) or (attr == 'data-original')): #很多网站使用data-src|data-original
+                        imgUrl = img[attr]
+                        break
+                if not imgUrl:
+                    for attr in img.attrs:
+                        if attr != 'src' and (('data' in attr) or ('file' in attr)): #如果上面的搜索找不到，再大胆一点猜测url
+                            imgUrl = img[attr]
+                            break
             
+            if not imgUrl:
+                img.decompose()
+                continue
+                
+            if url and not imgUrl.startswith(('data:', 'http')):
+                imgUrl = self.urljoin(url, imgUrl)
+                
+            if url and self.fetch_img_via_ssl and url.startswith('https://'):
+                imgUrl = imgUrl.replace('http://', 'https://')
+            
+            if self.isfiltered(imgUrl):
+                self.log.warn('img filtered : %s' % imgUrl)
+                img.decompose()
+                continue
+            
+            img['src'] = imgUrl #将更正的地址写回保存
+            
+            
+    #根据一些配置，对图像进行处理，比如缩小，转灰度图，转格式，图像分隔等
+    def process_image(self, data):
+        if not data:
+            return None
+        
+        opts = self.opts
         try:
             if not opts or not opts.process_images or not opts.process_images_immediately:
                 return data
@@ -927,7 +950,7 @@ class BaseFeedBook:
                 return mobify_image(data)
             else:
                 #如果图被拆分，则返回一个图像列表，否则返回None
-                splitedImages = self.SplitLongImage(data, opts) if THRESHOLD_SPLIT_LONG_IMAGE else None
+                splitedImages = self.SplitLongImage(data)
                 if splitedImages:
                     images = []
                     for image in splitedImages:
@@ -943,9 +966,11 @@ class BaseFeedBook:
             return data
     
     #如果一个图片太长，则将其分隔成多个图片
-    def SplitLongImage(self, data, opts):
+    def SplitLongImage(self, data):
         if not THRESHOLD_SPLIT_LONG_IMAGE:
             return None
+            
+        threshold = max(self.opts.dest.screen_size[1], THRESHOLD_SPLIT_LONG_IMAGE)
         
         if not isinstance(data, StringIO):
             data = StringIO(data)
@@ -954,14 +979,14 @@ class BaseFeedBook:
         fmt = img.format
         #info = img.info
         
-        #高比宽至少大一倍才认为是长图
-        if height < THRESHOLD_SPLIT_LONG_IMAGE or height < width * 2:
+        #高至少是宽的三倍才认为是超长图
+        if height < threshold or height < width * 3:
             return None
             
         imagesData = []
         top = 0
         while top < height:
-            bottom = top + THRESHOLD_SPLIT_LONG_IMAGE
+            bottom = top + threshold
             if bottom > height:
                 bottom = height
                     
@@ -977,9 +1002,11 @@ class BaseFeedBook:
         return imagesData
     
     #在文章末尾添加分享链接，如果文章末尾添加了网址的QRCODE，则此函数返回生成的图像(imgName, imgContent)，否则返回None
-    def AppendShareLinksToArticle(self, soup, user, url):
+    def AppendShareLinksToArticle(self, soup, url):
+        user = self.user
         if not user or not soup:
             return None
+            
         FirstLink = True
         qrimg = None
         qrimgName = ''
@@ -1074,9 +1101,9 @@ class BaseFeedBook:
             img.save(qrimg, 'JPEG')
         
         return (qrimgName, qrimg.getvalue()) if qrimg else None
-        
+    
+    #生成保存内容或分享文章链接的KindleEar调用链接
     def MakeShareLink(self, sharetype, user, url, soup):
-        " 生成保存内容或分享文章链接的KindleEar调用链接 "
         if sharetype in ('evernote', 'wiz'):
             href = "%s/share?act=%s&u=%s&url=" % (DOMAIN, sharetype, user.name)
         elif sharetype == 'pocket':
@@ -1112,14 +1139,14 @@ class WebpageBook(BaseFeedBook):
     fulltext_by_readability = False
 
     # 直接在网页中获取信息
-    def Items(self, opts=None, user=None):
+    def Items(self):
         """
         生成器，返回一个元组
         对于HTML：section,url,title,content,brief,thumbnail
         对于图片，mime,url,filename,content,brief,thumbnail
         如果是图片，仅第一个图片的thumbnail返回True，其余为None
         """
-        decoder = AutoDecoder(False)
+        decoder = AutoDecoder(isfeed=False)
         timeout = self.timeout
         for section, url in self.feeds:
             opener = URLOpener(self.host, timeout=timeout, headers=self.extra_header)
@@ -1129,14 +1156,8 @@ class WebpageBook(BaseFeedBook):
                 self.log.warn('fetch article failed(%s):%s.' % (URLOpener.CodeMap(status_code), url))
                 continue
             
-            if self.page_encoding:
-                try:
-                    content = content.decode(self.page_encoding)
-                except UnicodeDecodeError:
-                    content = decoder.decode(content,opener.realurl,result.headers)
-            else:
-                content = decoder.decode(content,opener.realurl,result.headers)
-
+            content = self.AutoDecodeContent(content, decoder, self.page_encoding, opener.realurl, result.headers)
+            
             content =  self.preprocess(content)
             soup = BeautifulSoup(content, "lxml")
 
@@ -1186,8 +1207,8 @@ class WebpageBook(BaseFeedBook):
             remove_attrs = self.insta_remove_attrs + self.remove_attrs
             for tag in soup.find_all(remove_tags):
                 tag.decompose()
-            for id in remove_ids:
-                for tag in soup.find_all(attrs={"id":id}):
+            for id_ in remove_ids:
+                for tag in soup.find_all(attrs={"id":id_}):
                     tag.decompose()
             for cls in remove_classes:
                 for tag in soup.find_all(attrs={"class":cls}):
@@ -1213,29 +1234,14 @@ class WebpageBook(BaseFeedBook):
             thumbnail = None
             if self.keep_image:
                 self.soupbeforeimage(soup)
+                self.RectifyImageSrcInSoup(soup, url)
                 for img in soup.find_all('img'):
-                    #现在使用延迟加载图片技术的网站越来越多了，这里处理一下
-                    #注意：如果data-src之类的属性保存的不是真实url就没辙了
-                    imgurl = img['src'] if 'src' in img.attrs else ''
+                    imgurl = img['src'] if 'src' in img.attrs else None
                     if not imgurl:
-                        for attr in img.attrs:
-                            if attr != 'src' and 'src' in attr: #很多网站使用data-src
-                                imgurl = img[attr]
-                                break
-                    if not imgurl:
-                        img.decompose()
                         continue
-                    if not imgurl.startswith('data:'):
-                        if not imgurl.startswith('http'):
-                            imgurl = self.urljoin(url, imgurl)
-                        if self.fetch_img_via_ssl and url.startswith('https://'):
-                            imgurl = imgurl.replace('http://', 'https://')
-                        if self.isfiltered(imgurl):
-                            self.log.warn('img filtered:%s' % imgurl)
-                            img.decompose()
-                            continue
+                        
                     imgresult = opener.open(imgurl)
-                    imgcontent = self.process_image(imgresult.content,opts) if imgresult.status_code==200 else None
+                    imgcontent = self.process_image(imgresult.content) if imgresult.status_code==200 else None
                     if imgcontent:
                         if isinstance(imgcontent, list): #一个图片分隔为多个图片
                             imgIndex = self.imgindex
@@ -1295,9 +1301,9 @@ class WebpageBook(BaseFeedBook):
             self.soupprocessex(soup)
             content = unicode(soup)
             
-            #提取文章内容的前面一部分做为摘要
+            #提取文章内容的前面一部分做为摘要，[漫画模式不需要摘要]
             brief = u''
-            if GENERATE_TOC_DESC:
+            if GENERATE_TOC_DESC and ((not self.user) or self.user.book_mode != 'comic'):
                 for h in body.find_all(['h1','h2']): # 去掉h1/h2，避免和标题重复
                     h.decompose()
                 for s in body.stripped_strings:
@@ -1321,6 +1327,157 @@ class BaseUrlBook(BaseFeedBook):
         """ return list like [(section,title,url,desc),..] """
         return [(sec,sec,url,'') for sec, url in self.feeds]
 
+class BaseComicBook(BaseFeedBook):
+    """ 漫画专用，漫画的主要特征是全部为图片，而且图片默认全屏呈现
+    由 insert0003 <https://github.com/insert0003> 贡献代码
+    如果要处理连载的话，可以使用 ComicUpdateLog 数据库表来记录和更新
+    """
+    title               = u''
+    description         = u''
+    language            = ''
+    feed_encoding       = ''
+    page_encoding       = ''
+    mastheadfile        = ''
+    coverfile           = ''
+    feeds               = [] #子类填充此列表[('name', mainurl),...]
+    min_image_size      = (150, 150) #小于这个尺寸的图片会被删除，用于去除广告图片或按钮图片之类的
+    
+    #子类必须实现此函数，返回 [(section, title, url, desc),..]
+    #每个URL直接为图片地址，或包含一个或几个漫画图片的网页地址
+    def ParseFeedUrls(self):
+        return []
+    
+    #生成器，返回一个图片元组，mime,url,filename,content,brief,thumbnail
+    def Items(self):
+        urls = self.ParseFeedUrls()
+        opener = URLOpener(self.host, timeout=self.timeout, headers=self.extra_header)
+        decoder = AutoDecoder(isfeed=False)
+        prevSection = ''
+        min_width, min_height = self.min_image_size if self.min_image_size else (0, 0)
+        htmlTemplate = '<html><head><meta http-equiv="Content-Type" content="text/html;charset=utf-8"><title>%s</title></head><body><img src="%s"/></body></html>'
+        
+        for section, fTitle, url, desc in urls:
+            if section != prevSection or prevSection == '':
+                    decoder.encoding = '' #每个小节都重新检测编码[当然是在抓取的是网页的情况下才需要]
+                    prevSection = section
+                    opener = URLOpener(self.host, timeout=self.timeout, headers=self.extra_header)
+                    if self.needs_subscription:
+                        result = self.login(opener, decoder)
+                        
+            result = opener.open(url)
+            content = result.content 
+            if not content:
+                continue
+            
+            imgFilenameList = []
+            
+            #先判断是否是图片
+            imgType = imghdr.what(None, content)
+            if imgType:
+                content = self.process_image_comic(content)
+                imgType = imghdr.what(None, content)
+                imgMime = r"image/" + imgType
+                fnImg = "img%d.%s" % (self.imgindex, 'jpg' if imgType=='jpeg' else imgType)
+                imgFilenameList.append(fnImg)
+                yield (imgMime, url, fnImg, content, None, None)
+            else: #不是图片，有可能是包含图片的网页，抽取里面的图片
+                content = self.AutoDecodeContent(content, decoder, self.page_encoding, opener.realurl, result.headers)
+                soup = BeautifulSoup(content, 'lxml')
+                self.RectifyImageSrcInSoup(soup, opener.realurl)
+                
+                #有可能一个网页有多个漫画图片，而且还有干扰项(各种按钮/广告等)，所以先全部保存再判断好了
+                #列表格式[(url, content),...]
+                imgContentList = []
+                for img in soup.find_all('img'):
+                    imgUrl = img['src'] if 'src' in img.attrs else None
+                    if not imgUrl:
+                        continue
+                        
+                    #为了省时间，如果图片属性中有width/height，则也可以先初步判断是不是漫画图片
+                    if 'width' in img.attrs:
+                        width = img.attrs['width'].replace('"', '').replace("'", '').replace('px', '').strip()
+                        try:
+                            if int(width) < min_width:
+                                continue
+                        except:
+                            pass
+                            
+                    if 'height' in img.attrs:
+                        height = img.attrs['height'].replace('"', '').replace("'", '').replace('px', '').strip()
+                        try:
+                            if int(height) < min_height:
+                                continue
+                        except:
+                            pass
+                            
+                    imgResult = opener.open(imgUrl)
+                    if imgResult.status_code == 200 and imgResult.content:
+                        imgContentList.append((imgUrl, imgResult.content))
+                
+                #判断图片里面哪些是真正的漫画图片
+                if not imgContentList:
+                    continue
+                elif len(imgContentList) == 1:
+                    imgUrl, imgContent = imgContentList[0]
+                    imgType = imghdr.what(None, imgContent)
+                    if imgType:
+                        imgContent = self.process_image_comic(imgContent)
+                        imgType = imghdr.what(None, imgContent)
+                        imgMime = r"image/" + imgType
+                        fnImg = "img%d.%s" % (self.imgindex, 'jpg' if imgType=='jpeg' else imgType)
+                        imgFilenameList.append(fnImg)
+                        yield (imgMime, imgUrl, fnImg, imgContent, None, None)
+                else: #多个图片，要分析哪些才是漫画
+                    isComics = [True for n in range(len(imgContentList))]
+                    for idx, imgItem in enumerate(imgContentList):
+                        imgUrl, imgContent = imgItem
+                        imgInstance = Image.open(StringIO(imgContent))
+                        width, height = imgInstance.size
+                        #图片太小则排除
+                        if width < min_width or height < min_height:
+                            isComics[idx] = False
+                        elif width > height * 4: #一般横幅广告图片都是横长条，可以剔除
+                            isComics[idx] = False
+                    
+                    #如果所有的图片都被排除了，则使用所有图片里面尺寸最大的
+                    if not any(isComics):
+                        imgContentList.sort(key=lambda x: len(x[1]), reverse=True)
+                        imgContentList = [imgContentList[0]]
+                    else:
+                        imgContentList = [item for idx, item in enumerate(imgContentList) if isComics[idx]]
+                    
+                    #列表中的就是漫画图片
+                    for imgUrl, imgContent in imgContentList:
+                        imgType = imghdr.what(None, imgContent)
+                        if imgType:
+                            imgContent = self.process_image_comic(imgContent)
+                            imgType = imghdr.what(None, imgContent)
+                            imgMime = r"image/" + imgType
+                            fnImg = "img%d.%s" % (self.imgindex, 'jpg' if imgType=='jpeg' else imgType)
+                            imgFilenameList.append(fnImg)
+                            yield (imgMime, imgUrl, fnImg, imgContent, None, None)
+            
+            #每个图片当做一篇文章，否则全屏模式下图片会挤到同一页
+            for imgFilename in imgFilenameList:
+                tmpHtml = htmlTemplate % (fTitle, imgFilename)
+                yield (imgFilename.split('.')[0], url, fTitle, tmpHtml, '', None)
+    
+    #预处理漫画图片
+    def process_image_comic(self, data):
+        if not data:
+            return None
+        
+        opts = self.opts
+        try:
+            if not opts or not opts.process_images or not opts.process_images_immediately:
+                return data
+            else:
+                return rescale_image(data, png2jpg=opts.image_png_to_jpg,
+                                graying=opts.graying_image,
+                                reduceto=opts.reduce_image_to)
+        except Exception as e:
+            self.log.warn('Process comic image failed (%s).' % str(e))
+            return data
 
 #几个小工具函数
 def remove_beyond(tag, next):
@@ -1364,3 +1521,25 @@ def debug_fetch(url, name='page.html'):
     result = opener.open(url)
     if result.status_code == 200 and result.content:
         debug_mail(result.content, name)
+
+#本地调试使用，在本地创建一个FTP服务器后，将调试文件通过FTP保存到本地
+#因为只是调试使用，所以就没有那么复杂的处理了，要提前保证目标目录存在
+def debug_save_ftp(content, name='page.html', root='', server='127.0.0.1', port=21, username='', password=''):
+    import ftplib
+    ftp = ftplib.FTP()
+    ftp.set_debuglevel(0)  #打开调试级别2，显示详细信息; 0为关闭调试信息
+    ftp.connect(server, port, 60)  #FTP主机 端口 超时时间
+    ftp.login(username, password)  #登录，如果匿名登录则用空串代替即可
+    
+    if root:
+        rootList = root.replace('\\', '/').split('/')
+        for dirName in rootList:
+            if dirName:
+                ftp.cwd(dirName)
+    
+    #为简单起见，就不删除FTP服务器的同名文件，取而代之的就是将当前时间附加到文件名后
+    name = name.replace('.', datetime.datetime.now().strftime('_%H_%M_%S.'))
+    ftp.storbinary('STOR %s' % name, StringIO(content))
+    ftp.set_debuglevel(0)
+    ftp.quit()
+    

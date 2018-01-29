@@ -82,7 +82,7 @@ msgstr "Çıkış"
 msgid "Feeds"
 msgstr "RSSler"
 
-msgid "Setting"
+msgid "Settings"
 msgstr "Ayarlar"
 
 msgid "Logs"
@@ -91,7 +91,7 @@ msgstr "Kayıtlar"
 msgid "Admin"
 msgstr "Yönetim"
 
-msgid "Advance"
+msgid "Advanced"
 msgstr "Gelişmiş"
 
 msgid "Please Login"
@@ -184,7 +184,7 @@ msgstr "İyi Haberler Daima Sizinle Olsun."
 msgid "Inherited From Calibre"
 msgstr "Calibre Kodları Kullanıldı."
 
-msgid "Share Your Idea"
+msgid "Share Your Ideas"
 msgstr "Fikrinizi Paylaşın"
 
 msgid ""
@@ -620,3 +620,58 @@ msgstr "Failed to delete the cover image. Error:"
 
 msgid "Error when try to delete the cover image. Status:"
 msgstr "Error when try to delete the cover image. Status:"
+
+msgid "Book mode"
+msgstr "Book mode"
+
+msgid "Periodical"
+msgstr "Periodical"
+
+msgid "Comic"
+msgstr "Comic"
+
+msgid "Please input a new number"
+msgstr "Please input a new number"
+
+msgid "The number is invalid"
+msgstr "The number is invalid"
+
+msgid "Unhappily : cannot change this record, Error:"
+msgstr "Unhappily : cannot change this record, Error:"
+
+msgid "Error when try to change this record. Status:"
+msgstr "Error when try to change this record. Status:"
+
+msgid "Unhappily : cannot delete this record, Error:"
+msgstr "Unhappily : cannot delete this record, Error:"
+
+msgid "Error when try to delete this record. Status:"
+msgstr "Error when try to delete this record. Status:"
+
+msgid "Last delivered"
+msgstr "Last delivered"
+
+msgid "Num"
+msgstr "Num"
+
+msgid "Record"
+msgstr "Record"
+
+msgid "Expiration"
+msgstr "Expiration"
+
+msgid "Never expire"
+msgstr "Never expire"
+
+msgid "1 Month"
+msgstr "1 Month"
+
+msgid "3 Months"
+msgstr "3 Months"
+
+msgid "6 Months"
+msgstr "6 Months"
+
+msgid "1 Year"
+msgstr "1 Year"
+
