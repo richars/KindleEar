@@ -13,6 +13,7 @@ from lib import feedparser
 from lib.readability import readability
 from lib.urlopener import URLOpener
 from lib.autodecoder import AutoDecoder
+from apps.dbModels import LastDelivered
 
 from calibre.utils.img import rescale_image, mobify_image
 from PIL import Image
@@ -680,10 +681,10 @@ class BaseFeedBook:
                     img.decompose()
 
             #去掉图像上面的链接，以免误触后打开浏览器
-            for img in soup.find_all('img'):
-                if img.parent and img.parent.parent and \
-                    img.parent.name == 'a':
-                    img.parent.replace_with(img)
+            if user and user.remove_hyperlinks in (u'image', u'all', 'image', 'all'):
+                for img in soup.find_all('img'):
+                    if img.parent and img.parent.parent and img.parent.name == 'a':
+                        img.parent.replace_with(img)
         else:
             for img in soup.find_all('img'):
                 img.decompose()
@@ -694,6 +695,14 @@ class BaseFeedBook:
             x.name = 'div'
         
         self.soupprocessex(soup)
+
+        #如果需要，去掉正文中的超链接(使用斜体下划线标识)，以避免误触
+        if user and user.remove_hyperlinks in (u'text', u'all', 'text', 'all'):
+            for a_ in soup.find_all('a'):
+                #a_.unwrap()
+                a_.name = 'i'
+                a_.attrs.clear()
+                #a_.attrs['style'] = 'text-decoration:underline;'
 
         #插入分享链接，如果有插入qrcode，则返回(imgName, imgContent)
         qrimg = self.AppendShareLinksToArticle(soup, url)
@@ -844,10 +853,10 @@ class BaseFeedBook:
                     img.decompose()
 
             #去掉图像上面的链接，以免误触后打开浏览器
-            for img in soup.find_all('img'):
-                if img.parent and img.parent.parent and \
-                    img.parent.name == 'a':
-                    img.parent.replace_with(img)
+            if user and user.remove_hyperlinks in (u'image', u'all', 'image', 'all'):
+                for img in soup.find_all('img'):
+                    if img.parent and img.parent.parent and img.parent.name == 'a':
+                        img.parent.replace_with(img)
         else:
             for img in soup.find_all('img'):
                 img.decompose()
@@ -881,11 +890,19 @@ class BaseFeedBook:
         
         self.soupprocessex(soup)
 
+        #如果需要，去掉正文中的超链接(使用斜体下划线标识)，以避免误触
+        if user and user.remove_hyperlinks in (u'text', u'all', 'text', 'all'):
+            for a_ in soup.find_all('a'):
+                #a_.unwrap()
+                a_.name = 'i'
+                a_.attrs.clear()
+                #a_.attrs['style'] = 'text-decoration:underline;'
+
         #插入分享链接，如果插入了qrcode，则返回(imgName, imgContent)
         qrimg = self.AppendShareLinksToArticle(soup, url)
         if qrimg:
             yield ('image/jpeg', url, qrimg[0], qrimg[1], None, None)
-                
+        
         content = unicode(soup)
 
         #提取文章内容的前面一部分做为摘要，[漫画模式不需要摘要]
@@ -1289,16 +1306,24 @@ class WebpageBook(BaseFeedBook):
                         img.decompose()
 
                 #去掉图像上面的链接
-                for img in soup.find_all('img'):
-                    if img.parent and img.parent.parent and \
-                        img.parent.name == 'a':
-                        img.parent.replace_with(img)
-
+                if self.user and self.user.remove_hyperlinks in (u'image', u'all', 'image', 'all'):
+                    for img in soup.find_all('img'):
+                        if img.parent and img.parent.parent and img.parent.name == 'a':
+                            img.parent.replace_with(img)
             else:
                 for img in soup.find_all('img'):
                     img.decompose()
 
             self.soupprocessex(soup)
+
+            #如果需要，去掉正文中的超链接(使用斜体下划线标识)，以避免误触
+            if self.user and self.user.remove_hyperlinks in (u'text', u'all', 'text', 'all'):
+                for a_ in soup.find_all('a'):
+                    #a_.unwrap()
+                    a_.name = 'i'
+                    a_.attrs.clear()
+                    #a_.attrs['style'] = 'text-decoration:underline;'
+            
             content = unicode(soup)
             
             #提取文章内容的前面一部分做为摘要，[漫画模式不需要摘要]
@@ -1312,7 +1337,7 @@ class WebpageBook(BaseFeedBook):
                         brief = brief[:TOC_DESC_WORD_LIMIT]
                         break
             soup = None
-
+            
             content =  self.postprocess(content)
             yield (section, url, title, content, brief, thumbnail)
 
@@ -1345,7 +1370,51 @@ class BaseComicBook(BaseFeedBook):
     #子类必须实现此函数，返回 [(section, title, url, desc),..]
     #每个URL直接为图片地址，或包含一个或几个漫画图片的网页地址
     def ParseFeedUrls(self):
+        urls = [] #用于返回
+
+        userName = self.UserName()
+        for item in self.feeds:
+            title, url = item[0], item[1]
+
+            lastCount = LastDelivered.all().filter('username = ', userName).filter("bookname = ", title).get()
+            if not lastCount:
+                self.log.info('These is no log in db LastDelivered for name: %s, set to 0' % title)
+                oldNum = 0
+            else:
+                oldNum = lastCount.num
+
+            chapterList = self.getChapterList(url)
+
+            pageCount=0
+            for deliverCount in range(5):
+                newNum = oldNum + deliverCount
+                if newNum < len(chapterList):
+                    imgList = self.getImgList(chapterList[newNum])
+                    if len(imgList) == 0:
+                        self.log.warn('can not found image list: %s' % chapterList[newNum])
+                        break
+                    for img in imgList:
+                        pageCount=pageCount+1
+                        urls.append((title, '{}'.format(pageCount), img, None))
+                        self.log.info('comicSrc: %s' % img)
+
+                    self.UpdateLastDelivered(title, newNum+1)
+                    if pageCount > 30:
+                        break
+
+        return urls
+
+    #获取漫画章节列表
+    def getChapterList(self, url):
         return []
+
+    #获取漫画图片列表
+    def getImgList(self, url):
+        return []
+    
+    #获取漫画图片内容
+    def adjustImgContent(self, content):
+        return content 
     
     #生成器，返回一个图片元组，mime,url,filename,content,brief,thumbnail
     def Items(self):
@@ -1358,28 +1427,47 @@ class BaseComicBook(BaseFeedBook):
         
         for section, fTitle, url, desc in urls:
             if section != prevSection or prevSection == '':
-                    decoder.encoding = '' #每个小节都重新检测编码[当然是在抓取的是网页的情况下才需要]
-                    prevSection = section
-                    opener = URLOpener(self.host, timeout=self.timeout, headers=self.extra_header)
-                    if self.needs_subscription:
-                        result = self.login(opener, decoder)
-                        
+                decoder.encoding = '' #每个小节都重新检测编码[当然是在抓取的是网页的情况下才需要]
+                prevSection = section
+                opener = URLOpener(self.host, timeout=self.timeout, headers=self.extra_header)
+                if self.needs_subscription:
+                    result = self.login(opener, decoder)
+
             result = opener.open(url)
-            content = result.content 
+            content = result.content
             if not content:
                 continue
-            
+
+            content = self.adjustImgContent(content);
+            if content == None:
+                self.log.warn("Image adjust error, try again: {}".format(url.encode('utf-8')))
+                content = self.adjustImgContent(content);
+                if content == None:
+                    self.log.warn("Image adjust error: {}".format(url.encode('utf-8')))
+                    continue
+
             imgFilenameList = []
-            
+
             #先判断是否是图片
             imgType = imghdr.what(None, content)
             if imgType:
                 content = self.process_image_comic(content)
-                imgType = imghdr.what(None, content)
-                imgMime = r"image/" + imgType
-                fnImg = "img%d.%s" % (self.imgindex, 'jpg' if imgType=='jpeg' else imgType)
-                imgFilenameList.append(fnImg)
-                yield (imgMime, url, fnImg, content, None, None)
+                if content:
+                    if isinstance(content, (list, tuple)): #一个图片分隔为多个图片
+                        imgIndex = self.imgindex
+                        for idx, imgPartContent in enumerate(content):
+                            imgType = imghdr.what(None, imgPartContent)
+                            imgMime = r"image/" + imgType
+                            fnImg = "img%d_%d.jpg" % (imgIndex, idx)
+                            imgPartUrl = url[:-4]+"_%d.jpg"%idx
+                            imgFilenameList.append(fnImg)
+                            yield (imgMime, imgPartUrl, fnImg, imgPartContent, None, True)
+                    else: #单个图片
+                        imgType = imghdr.what(None, content)
+                        imgMime = r"image/" + imgType
+                        fnImg = "img%d.%s" % (self.imgindex, 'jpg' if imgType=='jpeg' else imgType)
+                        imgFilenameList.append(fnImg)
+                        yield (imgMime, url, fnImg, content, None, None)
             else: #不是图片，有可能是包含图片的网页，抽取里面的图片
                 content = self.AutoDecodeContent(content, decoder, self.page_encoding, opener.realurl, result.headers)
                 soup = BeautifulSoup(content, 'lxml')
@@ -1461,7 +1549,21 @@ class BaseComicBook(BaseFeedBook):
             for imgFilename in imgFilenameList:
                 tmpHtml = htmlTemplate % (fTitle, imgFilename)
                 yield (imgFilename.split('.')[0], url, fTitle, tmpHtml, '', None)
-    
+
+    #更新已经推送的卷序号到数据库
+    def UpdateLastDelivered(self, title, num):
+        userName = self.UserName()
+        dbItem = LastDelivered.all().filter('username = ', userName).filter('bookname = ', title).get()
+        self.last_delivered_volume = u' 第%d话' % num
+        if dbItem:
+            dbItem.num = num
+            dbItem.record = self.last_delivered_volume
+            dbItem.datetime = datetime.datetime.utcnow() + datetime.timedelta(hours=TIMEZONE)
+        else:
+            dbItem = LastDelivered(username=userName, bookname=title, num=num, record=self.last_delivered_volume,
+                datetime=datetime.datetime.utcnow() + datetime.timedelta(hours=TIMEZONE))
+        dbItem.put()
+
     #预处理漫画图片
     def process_image_comic(self, data):
         if not data:
@@ -1472,12 +1574,48 @@ class BaseComicBook(BaseFeedBook):
             if not opts or not opts.process_images or not opts.process_images_immediately:
                 return data
             else:
-                return rescale_image(data, png2jpg=opts.image_png_to_jpg,
+                #如果图被拆分，则返回一个图像列表，否则返回None
+                splitedImages = self.SplitWideImage(data)
+                if splitedImages:
+                    images = []
+                    for image in splitedImages:
+                        images.append(rescale_image(image, png2jpg=opts.image_png_to_jpg, graying=opts.graying_image,
+                            reduceto=opts.reduce_image_to))
+                    return images
+                else:
+                    return rescale_image(data, png2jpg=opts.image_png_to_jpg,
                                 graying=opts.graying_image,
                                 reduceto=opts.reduce_image_to)
         except Exception as e:
             self.log.warn('Process comic image failed (%s).' % str(e))
             return data
+
+        #如果一个图片为横屏，则将其分隔成2个图片
+    def SplitWideImage(self, data):
+        if not isinstance(data, StringIO):
+            data = StringIO(data)
+
+        img = Image.open(data)
+        width, height = img.size
+        fmt = img.format
+        #宽>高才认为是横屏
+        if height > width:
+            return None
+
+        imagesData = []
+        part2 = img.crop((width/2-10, 0, width, height))
+        part2.load()
+        part2Data = StringIO()
+        part2.save(part2Data, fmt)
+        imagesData.append(part2Data.getvalue())
+
+        part1 = img.crop((0, 0, width/2+10, height))
+        part1.load()
+        part1Data = StringIO()
+        part1.save(part1Data, fmt)
+        imagesData.append(part1Data.getvalue())
+
+        return imagesData
 
 #几个小工具函数
 def remove_beyond(tag, next):
@@ -1542,4 +1680,3 @@ def debug_save_ftp(content, name='page.html', root='', server='127.0.0.1', port=
     ftp.storbinary('STOR %s' % name, StringIO(content))
     ftp.set_debuglevel(0)
     ftp.quit()
-    

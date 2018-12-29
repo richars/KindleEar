@@ -13,17 +13,10 @@ class FTChinese(BaseFeedBook):
     page_encoding         = "utf-8"
     mastheadfile          = "mh_ftchinese.gif"
     coverfile             = "cv_ftchinese.jpg"
-    oldest_article        = 1   
-    keep_image            = False
-    extra_css      = '''
-        body { font-size: 1em;  text-align: justify;  line-height: 1.718em}
-        p { font-size: 1em;  text-align: justify;  line-height: 1.718em }
-        div { font-size: 1em;  text-align: justify;  line-height: 1.718em }
-        h1 { font-size: large  }
-        '''
-        
+    oldest_article        = 1
+    
     feeds = [
-            (u'FT中文网', 'http://www.ftchinese.com/rss/feed'),
+            (u'每日新闻', 'http://www.ftchinese.com/rss/feed'),
             ]
     
     def fetcharticle(self, url, opener, decoder):
