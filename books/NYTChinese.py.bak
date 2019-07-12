@@ -24,7 +24,7 @@ class NYTChinese(BaseFeedBook):
         '''
 
     feeds = [
-            (u'纽约时报中文网', 'https://feedx.co/rss/nytimes.xml'),
+            (u'纽约时报中文网', 'https://cn.nytimes.com/rss.html'),
             ]
     
         
