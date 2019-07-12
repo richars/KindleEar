@@ -21,7 +21,17 @@ from StringIO import StringIO
 
 from config import *
 
-#base class of Book
+htmlTemplate = """
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+<title>%s</title>
+</head>
+<body><img src="%s"/></body>
+</html>""".strip()
+
+
+# base class of Book
 class BaseFeedBook:
     title                 = ''
     __author__            = ''
@@ -201,9 +211,9 @@ class BaseFeedBook:
         
     #返回当前任务的用户名
     def UserName(self):
-        return self.user.name if self.user else 'admin'
-    
-    #返回最近推送到期号（如果信息可用的话）
+        return self.user.name if self.user else "admin"
+
+    # 返回最近推送的章节标题
     def LastDeliveredVolume(self):
         return self.last_delivered_volume
         
@@ -1357,52 +1367,67 @@ class BaseComicBook(BaseFeedBook):
     由 insert0003 <https://github.com/insert0003> 贡献代码
     如果要处理连载的话，可以使用 ComicUpdateLog 数据库表来记录和更新
     """
-    title               = u''
-    description         = u''
-    language            = ''
-    feed_encoding       = ''
-    page_encoding       = ''
-    mastheadfile        = ''
-    coverfile           = ''
-    feeds               = [] #子类填充此列表[('name', mainurl),...]
-    min_image_size      = (150, 150) #小于这个尺寸的图片会被删除，用于去除广告图片或按钮图片之类的
-    
-    #子类必须实现此函数，返回 [(section, title, url, desc),..]
-    #每个URL直接为图片地址，或包含一个或几个漫画图片的网页地址
+
+    # 子类填充： (https://www.manhuagui.com", "https://m.manhuagui.com")
+    accept_domains = tuple()
+
+    title = u""
+    description = u""
+    language = ""
+    feed_encoding = ""
+    page_encoding = ""
+    mastheadfile = "mh_default.gif"
+    coverfile = "cv_bound.jpg"
+    feeds = []  # 子类填充此列表[('name', mainurl),...]
+    min_image_size = (150, 150)  # 小于这个尺寸的图片会被删除，用于去除广告图片或按钮图片之类的
+
+    # 子类必须实现此函数，返回 [(bookname, chapter_title, imgList, next_chapter_index),..]
     def ParseFeedUrls(self):
-        urls = [] #用于返回
+        chapters = []  # 用于返回
 
-        userName = self.UserName()
+        username = self.UserName()
         for item in self.feeds:
-            title, url = item[0], item[1]
+            bookname, url = item[0], item[1]
+            self.log.info(u"Parsing Feed {} for {}".format(url, bookname))
 
-            lastCount = LastDelivered.all().filter('username = ', userName).filter("bookname = ", title).get()
-            if not lastCount:
-                self.log.info('These is no log in db LastDelivered for name: %s, set to 0' % title)
-                oldNum = 0
+            last_deliver = (
+                LastDelivered.all()
+                .filter("username = ", username)
+                .filter("bookname = ", bookname)
+                .get()
+            )
+            if not last_deliver:
+                self.log.info(
+                    u"These is no log in db LastDelivered for name: {}, set to 0".format(
+                        bookname
+                    )
+                )
+                next_chapter_index = 0
             else:
-                oldNum = lastCount.num
+                next_chapter_index = last_deliver.num
 
-            chapterList = self.getChapterList(url)
-
-            pageCount=0
-            for deliverCount in range(5):
-                newNum = oldNum + deliverCount
-                if newNum < len(chapterList):
-                    imgList = self.getImgList(chapterList[newNum])
-                    if len(imgList) == 0:
-                        self.log.warn('can not found image list: %s' % chapterList[newNum])
-                        break
-                    for img in imgList:
-                        pageCount=pageCount+1
-                        urls.append((title, '{}'.format(pageCount), img, None))
-                        self.log.info('comicSrc: %s' % img)
-
-                    self.UpdateLastDelivered(title, newNum+1)
-                    if pageCount > 30:
-                        break
-
-        return urls
+            chapter_list = self.getChapterList(url)
+            chapter_length = len(chapter_list)
+            if next_chapter_index < chapter_length:
+                chapter_title, chapter_url = chapter_list[next_chapter_index]
+                self.log.info(u"Add {}: {}".format(chapter_title, chapter_url))
+                imgList = self.getImgList(chapter_url)
+                if not imgList:
+                    self.log.warn(
+                        "can not found image list: %s" % chapter_url
+                    )
+                    break
+                next_chapter_index += 1
+                chapters.append(
+                    (bookname, chapter_title, imgList, chapter_url, next_chapter_index)
+                )
+            else:
+                self.log.info(
+                    u"No new chapter for {} ( total {}, pushed {} )".format(
+                        bookname, len(chapter_list), next_chapter_index
+                    )
+                )
+        return chapters
 
     #获取漫画章节列表
     def getChapterList(self, url):
@@ -1414,37 +1439,24 @@ class BaseComicBook(BaseFeedBook):
     
     #获取漫画图片内容
     def adjustImgContent(self, content):
-        return content 
-    
-    #生成器，返回一个图片元组，mime,url,filename,content,brief,thumbnail
-    def Items(self):
-        urls = self.ParseFeedUrls()
-        opener = URLOpener(self.host, timeout=self.timeout, headers=self.extra_header)
-        decoder = AutoDecoder(isfeed=False)
-        prevSection = ''
-        min_width, min_height = self.min_image_size if self.min_image_size else (0, 0)
-        htmlTemplate = '<html><head><meta http-equiv="Content-Type" content="text/html;charset=utf-8"><title>%s</title></head><body><img src="%s"/></body></html>'
-        
-        for section, fTitle, url, desc in urls:
-            if section != prevSection or prevSection == '':
-                decoder.encoding = '' #每个小节都重新检测编码[当然是在抓取的是网页的情况下才需要]
-                prevSection = section
-                opener = URLOpener(self.host, timeout=self.timeout, headers=self.extra_header)
-                if self.needs_subscription:
-                    result = self.login(opener, decoder)
+        return content
 
+    # 生成器，返回一个图片元组，mime,url,filename,content,brief,thumbnail
+    def gen_image_items(self, img_list, referer):
+        opener = URLOpener(referer, timeout=self.timeout, headers=self.extra_header)
+        decoder = AutoDecoder(isfeed=False)
+        min_width, min_height = self.min_image_size
+        if self.needs_subscription:
+            result = self.login(opener, decoder)
+        for i, url in enumerate(img_list):
             result = opener.open(url)
             content = result.content
             if not content:
-                continue
+                raise Exception(
+                    "Failed to download %s: code %s" % url, result.status_code
+                )
 
-            content = self.adjustImgContent(content);
-            if content == None:
-                self.log.warn("Image adjust error, try again: {}".format(url.encode('utf-8')))
-                content = self.adjustImgContent(content);
-                if content == None:
-                    self.log.warn("Image adjust error: {}".format(url.encode('utf-8')))
-                    continue
+            content = self.adjustImgContent(content)
 
             imgFilenameList = []
 
@@ -1547,21 +1559,47 @@ class BaseComicBook(BaseFeedBook):
             
             #每个图片当做一篇文章，否则全屏模式下图片会挤到同一页
             for imgFilename in imgFilenameList:
-                tmpHtml = htmlTemplate % (fTitle, imgFilename)
-                yield (imgFilename.split('.')[0], url, fTitle, tmpHtml, '', None)
+                tmpHtml = htmlTemplate % (i, imgFilename)
+                yield (imgFilename.split(".")[0], url, str(i), tmpHtml, "", None)
 
-    #更新已经推送的卷序号到数据库
-    def UpdateLastDelivered(self, title, num):
+    def Items(self):
+        # todo: update last-delivered after send to kindle for built-in
+        for (
+            bookname,
+            chapter_title,
+            img_list,
+            chapter_url,
+            next_chapter_index,
+        ) in self.ParseFeedUrls():
+            for item in self.gen_image_items(img_list, chapter_url):
+                yield item
+            self.UpdateLastDelivered(bookname, chapter_title, next_chapter_index)
+
+    # 更新已经推送的序号和标题到数据库
+    def UpdateLastDelivered(self, bookname, chapter_title, num):
         userName = self.UserName()
-        dbItem = LastDelivered.all().filter('username = ', userName).filter('bookname = ', title).get()
-        self.last_delivered_volume = u' 第%d话' % num
+        dbItem = (
+            LastDelivered.all()
+            .filter("username = ", userName)
+            .filter("bookname = ", bookname)
+            .get()
+        )
+        self.last_delivered_volume = chapter_title
+        now = datetime.datetime.utcnow() + datetime.timedelta(
+            hours=TIMEZONE
+        )
         if dbItem:
             dbItem.num = num
             dbItem.record = self.last_delivered_volume
-            dbItem.datetime = datetime.datetime.utcnow() + datetime.timedelta(hours=TIMEZONE)
+            dbItem.datetime = now
         else:
-            dbItem = LastDelivered(username=userName, bookname=title, num=num, record=self.last_delivered_volume,
-                datetime=datetime.datetime.utcnow() + datetime.timedelta(hours=TIMEZONE))
+            dbItem = LastDelivered(
+                username=userName,
+                bookname=bookname,
+                num=num,
+                record=self.last_delivered_volume,
+                datetime=now,
+            )
         dbItem.put()
 
     #预处理漫画图片
@@ -1583,11 +1621,14 @@ class BaseComicBook(BaseFeedBook):
                             reduceto=opts.reduce_image_to))
                     return images
                 else:
-                    return rescale_image(data, png2jpg=opts.image_png_to_jpg,
-                                graying=opts.graying_image,
-                                reduceto=opts.reduce_image_to)
-        except Exception as e:
-            self.log.warn('Process comic image failed (%s).' % str(e))
+                    return rescale_image(
+                        data,
+                        png2jpg=opts.image_png_to_jpg,
+                        graying=opts.graying_image,
+                        reduceto=opts.reduce_image_to,
+                    )
+        except:
+            self.log.exception("Process comic image failed.")
             return data
 
         #如果一个图片为横屏，则将其分隔成2个图片

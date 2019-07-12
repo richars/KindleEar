@@ -12,26 +12,20 @@ from google.appengine.api import images
 from lib.userdecompress import decompressFromBase64
 
 class ManHuaGuiBaseBook(BaseComicBook):
-    title               = u''
-    description         = u''
-    language            = ''
-    feed_encoding       = ''
-    page_encoding       = ''
-    mastheadfile        = ''
-    coverfile           = ''
-    host                = 'https://m.manhuagui.com'
-    feeds               = [] #子类填充此列表[('name', mainurl),...]
+    accept_domains = (
+        "https://www.manhuagui.com",
+        "https://m.manhuagui.com",
+        "https://tw.manhuagui.com",
+    )
+    host = "https://m.manhuagui.com"
 
-    #获取漫画图片内容
+    # 获取漫画图片内容
     def adjustImgContent(self, content):
-        #强制转换成JPEG
-        try:
-            img = images.Image(content)
-            img.resize(width=(img.width-1), height=(img.height-1))
-            content = img.execute_transforms(output_encoding=images.JPEG)
-            return content
-        except:
-            return None
+        # 强制转换成JPEG
+        img = images.Image(content)
+        img.resize(width=(img.width - 1), height=(img.height - 1))
+        content = img.execute_transforms(output_encoding=images.JPEG)
+        return content
 
     #获取图片信息
     def get_node_online(self, input_str):
@@ -67,8 +61,8 @@ class ManHuaGuiBaseBook(BaseComicBook):
         opener = URLOpener(self.host, timeout=60)
         chapterList = []
 
-        if url.startswith( "https://www.manhuagui.com" ):
-            url = url.replace('https://www.manhuagui.com', 'https://m.manhuagui.com')
+        url = url.replace("https://www.manhuagui.com", "https://m.manhuagui.com")
+        url = url.replace("https://tw.manhuagui.com", "https://m.manhuagui.com")
 
         result = opener.open(url)
         if result.status_code != 200 or not result.content:
@@ -98,7 +92,7 @@ class ManHuaGuiBaseBook(BaseComicBook):
         for aindex in range(len(lias)):
             rindex = len(lias)-1-aindex
             href = "https://m.manhuagui.com" + lias[rindex].get("href")
-            chapterList.append(href)
+            chapterList.append((unicode(lias[rindex].string), href))
 
         return chapterList
 
@@ -117,7 +111,7 @@ class ManHuaGuiBaseBook(BaseComicBook):
         soup = BeautifulSoup(content, 'html.parser')
         scripts = soup.findAll("script", {"type": "text/javascript"})
         for script in scripts:
-            if script.text != "":
+            if "window[\"\\x65\\x76\\x61\\x6c\"]" in script.text != "":
                 raw_content = script.text
                 break
 
