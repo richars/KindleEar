@@ -10,5 +10,5 @@ def getBook():
 
 class DaDao(xxbiqugebase):
     title = u'[小说]大道朝天'
-    description = u'人间武库'
+    description = u'猫腻'
     feeds = 'https://www.xbiquge6.com/32_32972/'
