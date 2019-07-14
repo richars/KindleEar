@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 # -*- coding:utf-8 -*-
 from base import BaseFeedBook
 import re
@@ -7,12 +7,13 @@ def getBook():
     return NYTChina
 
 class NYTChina(BaseFeedBook):
-    title                 = 'NY Times'
+    title                 = 'NYT China and Korea'
     description           = 'News from the NYT'
     language              = 'en'
     feed_encoding         = "utf-8"
     page_encoding         = "utf-8"
     oldest_article        = 1
+    max_articles_per_feed = 10
 #    mastheadfile          = "mh_d5yuansu.gif"
 #    coverfile             = "cv_d5yuansu.jpg"
 #    network_timeout       = 60
@@ -27,7 +28,7 @@ class NYTChina(BaseFeedBook):
 	          ('NYT Economy','http://www.nytimes.com/services/xml/rss/nyt/Economy.xml'),                          
 	          ]
     fulltext_by_readability = False
-    keep_image = True
+    keep_image = False
     extra_css      = '''
         .headline {font-size: large}
         .byline author vcard {font-size: small}
@@ -37,17 +38,22 @@ class NYTChina(BaseFeedBook):
         .date {font-size: small}
         .credit {font-size: small}
         .dateline {font-size: small}  
-        .caption {font-style: italic}
+        .caption {font-style: italic}        
         h2 { font-size: medium  }
         h4 { font-size: medium; font-weight: bold }
         h1 { font-size: large  }
+        *[class^="ResponsiveMedia-caption"] {font-style: italic}
+        *[class^="elementStyles-printInformation"] {font-size: small}
+        *[class^="css-1wtlzrm"] {font-style: italic}
+        *[class^="css-109u0hy"] {font-style: italic}
+        .bottom-of-article {font-size: small}
         '''
 #    keep_only_tags = [dict(name='p')]
     remove_tags_after = [ dict(attrs={'class':[
-            'module-heading','story-print-citation','story-info'
+            'module-heading','story-print-citation','story-info','bottom-of-article'
     ]})]
     remove_tags_before = [dict(name=['h1'])]
-    remove_ids = ['news-tips-article-promo']
+    remove_ids = ['news-tips-article-promo','player']
     remove_classes = [
             'articleFooter',
             'articleTools',
@@ -132,19 +138,37 @@ class NYTChina(BaseFeedBook):
             'articleInlineVideoHolder',  # added 02-11-2011
             'assetCompanionAd',
             'nytint-sectionHeader',
+            re.compile('^InlineMessage'),
+            re.compile('^RelatedCoverage'),
+            re.compile('^styles-translation'),
+            re.compile('^SectionBarShare'),
             re.compile('^subNavigation'),
             re.compile('^leaderboard'),
             re.compile('^module'),
             re.compile('commentCount'),
+            re.compile('^css-l9vd'),
+            re.compile('^ResponsiveAd'),
+            re.compile('^styles-shareNetworks'),
+            re.compile('^css-30n6iy'),
+            re.compile('^ResponsiveMedia-credit'),
+            re.compile('^css-1ly73wi'),
+            re.compile('^css-1dv1kvn'),
+            'emkp2hg1',
+            'css-1y7ysfx',
+            'css-y8aj3r',
+            'css-1ahraz5',
             'lede-container',
             'credit',
             'caption-video',
             'interactive promo  layout-large',
-            'interactive-image-container',
-            'interactive-caption'
-      ]
-    
+            'interactive-image-container', 'interactive-caption',
+            'elementStyles-translationLinks--27EiR', 'accessibility-visuallyHidden--OUeHR',
+            'Media-credit--1ZFho ResponsiveMedia-credit--3F-q_',
+            'SectionBarShare-shareMenu--2ndEi SectionBarShare-toneNews--1a-Gj SectionBarShare-bottom--3ONdV'
+    ]
     remove_tags = [
+        dict(name='div', role='toolbar'),
+        dict(name='span', string='Image'),
         dict(attrs={'class': [
             'articleFooter',
             'articleTools',
@@ -279,4 +303,6 @@ class NYTChina(BaseFeedBook):
             'whats-next',
             'newsletter-promo',
         ]),
-        dict(name=['script', 'noscript', 'style', 'form', 'hr', 'button', 'meta', 'footer'])]
+        dict(name=['script', 'noscript', 'style', 'form', 'hr', 'button', 'meta', 'footer']),
+        dict(name='span', string='image')
+    ]

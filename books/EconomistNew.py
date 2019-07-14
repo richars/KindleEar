@@ -9,23 +9,25 @@ def getBook():
     
 
 def fetch_cover(self):
-    mainurl = 'http://www.economist.com/printedition'
-    opener = URLOpener(None, timeout=90)
+    mainurl = 'https://www.economist.com/printedition'
+    opener = URLOpener(None, timeout=180)
 #    opener = URLOpener(self.host, timeout=90)
     result = opener.open(mainurl)
     content = result.content.decode('utf-8')
 #    content = result.content.decode(self.feed_encoding)
     soup = BeautifulSoup(content, "lxml")
-    div=soup.find('div', attrs={'class':'print-edition__cover-widget'})
+#    wrapper = soup.find('div', attrs={'class':'print-edition__cover-wrapper'})
+    wrapper = soup.find('div', class_='print-edition__cover-wrapper')
+    div=wrapper.find('div', class_='component-image print-edition__cover-widget__image')
     img = div.find('img', src=True)
     cover = img.get('src')
-    if cover.startswith('/'):
-        cover = 'http://www.economist.com' + cover
+#    if cover.startswith('/'):
+#        cover = 'http://www.economist.com' + cover
     data = urllib.urlopen(cover).read()
     return data
 
 class TheEconomist(BaseFeedBook):
-    title                 = 'The Economist Web'
+    title                 = 'The Economist (printed edition)'
     description           = 'Global news and current affairs from a European perspective, delivered on Friday.'
     language              = 'en'
     feed_encoding         = "utf-8"
@@ -34,7 +36,7 @@ class TheEconomist(BaseFeedBook):
 #    coverfile             = "cv_economist.jpg"
     coverfile             =  fetch_cover
     deliver_days          = ['Friday']
-    deliver_times         = [18]
+    deliver_times         = [14]
     fulltext_by_readability = False
     keep_image            = True
     
@@ -50,7 +52,7 @@ class TheEconomist(BaseFeedBook):
                       'latest-updates-panel-card__time','blog-post__siblings-list-aside ','blog-post__siblings-list-aside',
                       'blog-post__siblings-list-header ','blog-post__siblings-list-header','special-report-header',
                       'special-report-header-sponser','content_clearfix','column-right','blog-post__asideable-wrapper',
-                      'newsletter-form'
+                      'newsletter-form','blog-post__bottom-panel'
                       ]
 #    remove_ids = ['more-kallery']
     remove_tags = [
@@ -58,16 +60,17 @@ class TheEconomist(BaseFeedBook):
     ]
     keep_only_tags = [{'name':'article'}
                      ]
-    remove_tags_after = [ dict(attrs={'class':['blog-post__foot-note','blog-post__comments-label']})
+    remove_tags_after = [ dict(attrs={'class':['blog-post__foot-note','blog-post__comments-label','blog-post__bottom-panel']})
     ]
     remove_attributes = ['data-reactid']
     feeds = [
-            ('Index', 'http://www.economist.com/printedition'),
+            ('Index', 'https://www.economist.com/printedition'),
            ]
     
     def ParseFeedUrls(self):
         #return list like [(section,title,url,desc),..]
-        main = 'http://www.economist.com/printedition'
+        main = 'https://www.economist.com/printedition'
+#        main = 'https://www.economist.com/'
         urls = []
         urladded = set()
         opener = URLOpener(self.host, timeout=90)
@@ -75,7 +78,17 @@ class TheEconomist(BaseFeedBook):
         if result.status_code != 200:
             self.log.warn('fetch webpage failed:%s'%main)
             return []
-            
+#        content = result.content.decode(self.feed_encoding)
+#        soup = BeautifulSoup(content, "lxml")
+#        a = soup.find('a', attrs={'class':'latest-printed__cta'})
+#        current = a['href']
+#        if current.startswith(r'/'):
+#            current = 'https://www.economist.com' + url
+#        opener = URLOpener(self.host, timeout=90)
+#        result = opener.open(current)
+#        if result.status_code != 200:
+#            self.log.warn('fetch latest edition failed:%s'%main)
+#            return []
         content = result.content.decode(self.feed_encoding)
         soup = BeautifulSoup(content, "lxml")
         
@@ -105,7 +118,7 @@ class TheEconomist(BaseFeedBook):
                     title = string_of_tag(node).strip()
                 url = node['href']
                 if url.startswith(r'/'):
-                    url = 'http://www.economist.com' + url
+                    url = 'https://www.economist.com' + url
                     #self.log.info('\tFound article:%s' % title)
                     if url not in urladded:
                         urls.append((sectitle,title,url,None))
@@ -116,12 +129,12 @@ class TheEconomist(BaseFeedBook):
         return urls
     
     extra_css= '''
-    .flytitle-and-title__flytitle {font-size: large; font-weight: bold; display: block;}
+    .flytitle-and-title__flytitle {font-size: medium; font-weight: bold; display: block;}
     .flytitle-and-title__title {font-size: large; font-weight: bold}
     .blog-post__rubric { font-weight: bold;  }
     figcaption {font-style: italic}
     .caption {font-style: italic}
     .location { font-size: small;  }
-    .xhead { font-weight: bold;  }
+    .xhead { font-weight: bold; font-size: medium }
     .Bold { font-weight: bold; font-style: normal }
         '''
