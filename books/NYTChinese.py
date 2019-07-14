@@ -6,8 +6,8 @@ def getBook():
     return NYTChinese
 
 class NYTChinese(BaseFeedBook):
-    title                 = u'纽约时报中文网'
-    description           = u'纽约时报中文网'
+    title                 = u'纽约时报中文版'
+    description           = u'纽约时报中文版'
     language              = 'zh-cn'
     feed_encoding         = "utf-8"
     page_encoding         = "utf-8"

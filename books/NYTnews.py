@@ -7,7 +7,7 @@ def getBook():
     return NYTChina
 
 class NYTChina(BaseFeedBook):
-    title                 = 'NYT China and Korea'
+    title                 = 'NewYork Times'
     description           = 'News from the NYT'
     language              = 'en'
     feed_encoding         = "utf-8"
